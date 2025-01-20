@@ -12,10 +12,10 @@
 # See the LICENSE file associated with this repository.
 # See https://github.com/ghfbsd
 
-VER = 'AN195'                    # version ID
+VER = 'AN205'                    # version ID
 
-SSID = "********"
-PASS = "********"
+SSID = "****"
+PASS = "****"
 
 ROCRAIL_PORT = 15731             # Marklin diktat
 ROCSIZE = 13                     # Fixed by protocol definition
@@ -159,7 +159,12 @@ async def CAN_READER():
 
 def CAN_IN(msg, err, buf=bytearray(ROCSIZE)):
    if err:
-      print('   >>>CAN read error<<<')
+      stat = can.intf().getStatus()     # Order matters: status first ...
+      intr = can.intf().getInterrupts() # ...then interrupt reg
+      errf = can.intf().getErrorFlags()
+      print('   >>>CAN read error<<< stat %02x intr %02x err %02x' %
+         (stat,intr,errf)
+      )
       return
    buf[0] = msg.can_id >> 24 & 0xff 
    buf[1] = msg.can_id >> 16 & 0xff 
@@ -186,17 +191,27 @@ async def TCP_WRITER():
       TCP_W.write(pkt)
       TCP_W.drain()
 
-async def CAN_WRITER():
+async def CAN_WRITER(MERR=5):
    global can
    async for pkt in TCPtoCAN:
       assert len(pkt) == ROCSIZE
+      cnt = 0
       while can.send(
             ID=int.from_bytes(pkt[0:4]),
             data=pkt[5:5+int(pkt[4])],
             EFF=True
-         ):
-         print('   >>>CAN write error<<<')
+      ):
+         cnt += 1
+         errf = can.intf().getErrorFlags() # Error Flag register
+         if cnt <= MERR:
+            print('   >>>CAN write error<<< (err %02x)%s' % 
+               (errf, ' - quelling further reports' if cnt >= MERR else '')
+            )
+         if errf & 0x30:         # TXBO/Bus-Off or TXEP/TX-Passive
+            can.intf().clearErrorFlags(MERR=True)
          asyncio.sleep_ms(10)
+         if cnt > 500:           # Abandon after this many tries
+            break
 
 try:
    from marklin import decode    # Marklin CS2 CAN packet decoder
