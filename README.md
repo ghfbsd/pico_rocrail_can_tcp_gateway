@@ -60,13 +60,13 @@ Try the `can_test_intr.py` program to verify that it is working properly.
 ### Download the software
 
 The program needs a few bits and bobs to run with MicroPython.
-The most important one are the CAN bus drivers.  You can get them
+The most important one is the CAN bus driver.  You can get them
 [here](https://github.com/ghfbsd/MicroPython_CAN_BUS_MCP2515).  They extend the
 ones provided by the manufacturer to enable more advanced features of the board 
 that the TCP-CAN reader uses.
 
 Assuming that you are running **rshell** from the directory where you downloaded
-this repository's contents, and that the CAN bus drivers are in a subdirectory
+this repository's contents, and that the CAN bus driver is in a subdirectory
 of it called `MicroPython_CAN_BUS_MCP2515`, proceed as follows.
 In **rshell**, after connecting to the RPP:
 
@@ -121,7 +121,7 @@ board, and insert the other pins into the proper holes in the connector socket
 on the Gleisbox.
 
 **Be very careful to avoid the "Versorgung +" pin.  This is the 18V power
-supply output from the Gleisbox.  If it is connected to your CAN bus, it will
+supply output from the Gleisbox.  If 18V is connected to your CAN bus, it will
 damage it (the bus operates on 3.3V).**
 
 ### Test the board
@@ -237,3 +237,14 @@ The program handles this, but may not be able to successfully sync with the
 CAN bus after the Gleisbox powers up again.  If this turns out to be a problem,
 press the `BOOT SEL` button on the RPP to restart.  Or, cycle the power by
 unplugging it and plugging it back in.
+
+## Bugs and Wish List
+
+* It would be great to have the hub advertise the train control service so that
+Rocrail could discover it.  This involves using mDNS to advertise the
+CANservice to Rocrail (services of Rocrail's interest are shown
+[here](https://wiki.rocrail.net/doku.php?id=mdns-en))
+so that Rocrail can discover the hub automatically.
+A restriction in MicroPython's support of the RPP (as of Jan. 2025) prevents
+this, however, because use of port 5353 (mDNS) is blocked by MicroPython's use
+of it.
