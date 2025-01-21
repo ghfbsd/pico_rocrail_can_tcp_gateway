@@ -127,30 +127,42 @@ TCPtoCAN = ThreadSafeQueue(QSIZE*[bytearray(ROCSIZE)])
 debugQUE = ThreadSafeQueue(QSIZE*[bytearray(ROCSIZE)])
 
 TCP_R, TCP_W = None, None
+TCP_RERR, TCP_WERR = False, False
 
 rrhash = 0
 
-async def TCP_SERVER(R,W,PORT=ROCRAIL_PORT):
+async def TCP_SERVER(R, W, PORT=ROCRAIL_PORT):
    # Callback when RocRail client connects to us
-   global TCP_R, TCP_W
+   global TCP_R, TCP_W, TCP_RERR, TCP_WERR
    print('TCP connection made, waiting for traffic on port %d.' % PORT)
    TCP_R, TCP_W = R, W
+   while True:
+      await asyncio.sleep(15)
+      if TCP_RERR and TCP_WERR:
+         # Must be a disconnect; finish and wait for a new connection
+         print('*** TCP connection lost, waiting for reconnect.')
+         break
 
 async def TCP_READER():
    # packet layout:
    #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = ROCSIZE
    #    -----------  --  -----------------------
    #       CAN ID    len  data (left justified)
-   global TCP_R, rrhash
-   while True:
+   global TCP_R, TCP_RERR, rrhash
+   while True:                   # Wait for connection
       if TCP_R is None:
          await asyncio.sleep_ms(10)
          continue
-      pkt = await TCP_R.readexactly(ROCSIZE)
-      assert len(pkt) == ROCSIZE
-      rrhash = int.from_bytes(pkt[2:4])
-      await TCPtoCAN.put(pkt)
-      await debugQUE.put(pkt)
+
+      try:                       # Serve it
+         pkt = await TCP_R.readexactly(ROCSIZE)
+         assert len(pkt) == ROCSIZE
+         rrhash = int.from_bytes(pkt[2:4])
+         await TCPtoCAN.put(pkt)
+         await debugQUE.put(pkt)
+      except EOFError:
+         TCP_RERR, TCP_R = True, None
+         continue
 
 async def CAN_READER():
    global can
@@ -183,15 +195,22 @@ def CAN_IN(msg, err, buf=bytearray(ROCSIZE)):
       print('***debug q full')
 
 async def TCP_WRITER():
-   global TCP_W
-   while TCP_W is None:
-      await asyncio.sleep_ms(10)
-   async for pkt in CANtoTCP:
-      assert len(pkt) == ROCSIZE
-      TCP_W.write(pkt)
-      TCP_W.drain()
+   global TCP_W, TCP_WERR
 
-async def CAN_WRITER(MERR=5):
+   while True:                   # Wait for connection
+      if TCP_W is None:
+         await asyncio.sleep_ms(10)
+         continue
+
+      try:                       # Serve it
+         async for pkt in CANtoTCP:
+            assert len(pkt) == ROCSIZE
+            TCP_W.write(pkt)
+            TCP_W.drain()
+      except OSError:
+         TCP_WERR, TCP_W = True, None
+
+async def CAN_WRITER(MERR=5, MCNT=500):
    global can
    async for pkt in TCPtoCAN:
       assert len(pkt) == ROCSIZE
@@ -210,7 +229,7 @@ async def CAN_WRITER(MERR=5):
          if errf & 0x30:         # TXBO/Bus-Off or TXEP/TX-Passive
             can.intf().clearErrorFlags(MERR=True)
          asyncio.sleep_ms(10)
-         if cnt > 500:           # Abandon after this many tries
+         if cnt > MCNT:          # Abandon packet after this many tries
             break
 
 try:
