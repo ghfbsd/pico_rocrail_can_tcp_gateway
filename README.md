@@ -1,5 +1,7 @@
 # Raspberry Pi Pico-based TCP-CAN router
 
+![Gleisbox and board image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/complete.jpg?raw=true)
+
 ## Introduction
 
 This is a low-cost solution to the goal of running a Märklin train set without
@@ -41,7 +43,7 @@ Get your Raspberry Pi Pico (RPP) working with **rshell** by downloading the
 [MicroPython](https://docs.micropython.org/en/latest/) firmware onto it.
 The appropriate firmware for a RPP can be found [here](https://micropython.org/download/?port=rp2); make sure to choose the wireless version.
 
-### Assemble the boards
+### Assemble the board
 
 Familiarize yourself with the
 [RB-P-CAN-485 board](https://github.com/ghfbsd/RB-P-CAN-485);
@@ -99,8 +101,8 @@ PASS = "****"
 to the appropriate network name and password for your WiFi environment.
 Save the file.
 
-Finally, load the TCP-CAN router program and make it run automatically when
-the RPP starts up.
+Finally, using **rshell**, load the TCP-CAN router program and make it run
+automatically when the RPP starts up.
 ```
 cp TCP-CAN.py /pyboard/main.py
 ```
@@ -108,28 +110,29 @@ cp TCP-CAN.py /pyboard/main.py
 ### Connect to the Gleisbox
 
 The connection to the Märklin Gleisbox is by way of pins on the mini-DIN 10
-pin connection socket on the board.  See the diagram below:
+pin connection socket on the side of the box.  See the diagram below:
 
 ![mini-DIN 10 connector image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/mini-DIN10.jpg?raw=true)
 
 You need to connect the CAN low, CAN high and ground ("Masse") to your
 RB-P-CAN-485 board.
 Male-male breadboard jumpers are ideal for this: screw one set of pins to the
-board, and insert the other pins into the proper pins in the connector socket
+board, and insert the other pins into the proper holes in the connector socket
 on the Gleisbox.
 
-_Be very careful to avoid the "Versorgung +" pin.  This is the 18V power
-supply output from the Gleisbox.  If it is connected to your board, it will
-damage it._
+**Be very careful to avoid the "Versorgung +" pin.  This is the 18V power
+supply output from the Gleisbox.  If it is connected to your CAN bus, it will
+damage it (the bus operates on 3.3V).**
 
-### Test the boards
+### Test the board
 
 Start the program by going into REPL mode and then running the Python code:
 ```
 xxx> repl pyboard
 >>> execfile('main.py')
 ```
-(`xxx` is your local directory name where you're running **rshell**.)
+(`xxx>` is the **rshell** prompt; `xxx` is your local directory name where
+you're running **rshell**, and `>>>` is the MicroPython REPL prompt.)
 
 You should see something similar to
 
@@ -142,8 +145,8 @@ TCP connection made, waiting for traffic on port 15731.
 ```
 
 There are a few useful things to note in the startup messages.
-First, it gives the IP address you will need this to set up
-your train controller to communicate with the wireless hub.  Second, it
+First, they give the IP address and device name that you will need this to set
+up your train controller to communicate with the wireless hub.  Second, it
 gives you the port number the TCP traffic is expected on.  You'll also need
 this to configure your train controller.  (Port 15731 is the port customarily
 used by Märklin to communicate by TCP with a Gleisbox.)
@@ -180,7 +183,7 @@ You'll see a dialog like this:
 Then:
 * Change `NEW` to some name that you prefer for the hub.
 * Select `TCP` as the type
-* Fill in `Hostname` with the IP number (or the rpp-xxxxxx if you have DNS)
+* Fill in `Hostname` with the IP number (or `rpp-xxxxxx` if you have DNS)
 * Fill in the `:` field following `Hostname` with 15731.
 * Click `OK` to add.
 
@@ -189,11 +192,11 @@ At this point, you can start running.
 
 Connect the MS2 (or CS2/CS3) controller to the Gleisbox.
 Power up the system by plugging in the Märklin power supply to the Gleisbox.
-After initializing, the MS2 will be in the `STOP` state; press `STOP` to put it
-into operation mode.
+After initializing, the MS2 will be in the STOP state (red STOP lights on);
+press STOP to put it into operation mode (red STOP lights off).
 
 At this point, you should start to see packets flowing from Rocrail and from
-the Gleisbox.  They will look resemble this:
+the Gleisbox.  They will resemble this:
 
 ```
 TCP -> CAN 00 00 b7 66 08 00 00 00 00 20 0a 31 3c
@@ -213,10 +216,10 @@ Start running your train with either the MS2 or Rocrail.  You will see
 packets flowing back and forth whenever the train's state changes, or when
 accessories are commanded to change.
 
-Once you're confident your boards are working, you don't need to have the
+Once you're confident your board is working, you don't need to have the
 USB connected to your computer.  Rather, you can connect it to a USB power
-source to run the boards and the RPP.  It does not matter which USB connection
-you use: either of the connectors on the  RPP or the RB-P-CAN-485 board will
+source to run the board and the RPP.  It does not matter which USB connection
+you use: either of the connectors on the RPP or the RB-P-CAN-485 board will
 run them both.  Only the RPP's USB connection will talk to **rshell** though.
 
 ## Operational notes
@@ -232,4 +235,5 @@ light), something is hung.  To restart, press the `BOOT SEL` button on the RPP.
 If you power off the Gleisbox, there is no longer an active CAN bus.
 The program handles this, but may not be able to successfully sync with the
 CAN bus after the Gleisbox powers up again.  If this turns out to be a problem,
-press the `BOOT SEL` button on the RPP to restart.
+press the `BOOT SEL` button on the RPP to restart.  Or, cycle the power by
+unplugging it and plugging it back in.
