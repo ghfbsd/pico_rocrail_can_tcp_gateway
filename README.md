@@ -18,7 +18,10 @@ The communications protocol used is a public one
 [published by Märklin](https://streaming.maerklin.de/public-media/cs2/cs2CAN-Protokoll-2_0.pdf) using TCP as a transport layer on WiFi and the CAN
 protocol over wires connecting the various Märklin] boxes.
 This same protocol is used by popular train control software, in particular
-Rocrail, iTrain, and JMRI among possibly others.
+[Rocrail](https://wiki.rocrail.net/doku.php?id=start),
+[iTrain](https://www.berros.eu/en/itrain/),
+[TrainController](https://www.freiwald.com/pages/traincontroller.htm)
+and possibly with [JMRI](https://www.jmri.org) among others.
 
 ## Requirements
 
@@ -172,7 +175,7 @@ connection dialog.
 ## Using the Hub with Rocrail
 
 Rocrail has built-in support for 
-Märklin's TCP protocol: it calls it the MBUS protocol.
+Märklin's TCP protocol: the MBUS protocol.
 In Rocrail's `Rocrail properties ...` dialog, navigate to the `Controller`
 panel.
 You want to add a new controller to the list.
