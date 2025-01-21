@@ -7,12 +7,12 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 19 Jan. 2025
+# last revision 21 Jan. 2025
 
 # See the LICENSE file associated with this repository.
 # See https://github.com/ghfbsd
 
-VER = 'AN205'                    # version ID
+VER = 'AN215'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -130,10 +130,10 @@ TCP_R, TCP_W = None, None
 
 rrhash = 0
 
-async def TCP_SERVER(R,W):
+async def TCP_SERVER(R,W,PORT=ROCRAIL_PORT):
    # Callback when RocRail client connects to us
    global TCP_R, TCP_W
-   print('TCP connection made, waiting for traffic.')
+   print('TCP connection made, waiting for traffic on port %d.' % PORT)
    TCP_R, TCP_W = R, W
 
 async def TCP_READER():
