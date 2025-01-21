@@ -34,8 +34,8 @@ yields a more robust setup.
 
 ### Development environment
 
-This description uses (rshell)[https://github.com/dhylands/rshell] for a
-development environment.  Others may prefer (Thonny)[https://thonny.org].
+This description uses [rshell](https://github.com/dhylands/rshell) for a
+development environment.  Others may prefer [Thonny](https://thonny.org).
 
 Get your Raspberry Pi Pico (RPP) working with **rshell** by downloading the
 [MicroPython](https://docs.micropython.org/en/latest/) firmware onto it.
@@ -66,7 +66,7 @@ that the TCP-CAN reader uses.
 Assuming that you are running **rshell** from the directory where you downloaded
 this repository's contents, and that the CAN bus drivers are in a subdirectory
 of it called `MicroPython_CAN_BUS_MCP2515`, proceed as follows.
-In *rshell*, after connecting to the RPP:
+In **rshell**, after connecting to the RPP:
 
 ```
 cd MicroPython_CAN_BUS_MCP2515
@@ -88,7 +88,7 @@ In **rshell**, again:
 ```
 cp marklin.py /pyboard
 cp threadsafe.py /pyboard
-``
+```
 
 You have to edit the text of TCP-CAN.py to add your WiFi network credentials.
 With your favorite editor, change the lines,
