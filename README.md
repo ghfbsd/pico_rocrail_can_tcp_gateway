@@ -1,4 +1,4 @@
-# Raspberry Pi Pico-based TCP-CAN router
+# Raspberry Pi Pico-based TCP-CAN hub
 
 ![Gleisbox and board image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/complete.jpg?raw=true)
 
@@ -166,7 +166,7 @@ at all.
 
 To check whether you have DNS discovery of the RPP on your network, try
 ```
-ping rpp-xxxxxx 15731
+ping -p 15731 rpp-xxxxxx
 ```
 and see if you get a reply.  If you do, great - otherwise use the IP address
 to configure your train controller ... and pay attention to the initial
@@ -185,15 +185,19 @@ You'll see a dialog like this:
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/Add-dialog.jpg?raw=true)
 
 Then:
-* Change `NEW` to some name that you prefer for the hub.
+* Change `NEW` to some name that you prefer for the hub, e.g. RPIW-CAN.
 * Select `TCP` as the type
 * Fill in `Hostname` with the IP number (or `rpp-xxxxxx` if you have DNS)
 * Fill in the `:` field following `Hostname` with 15731.  (Or leave it blank,
 which Rocrail assumes to mean 15731 for TCP.)
 * Click `OK` to add.
 
-Back in the `Controller` dialog, make sure that your controller is selected.
-At this point, you can start running.
+The loco you want to drive has to be connected to this controller (say, RPIW-CAN
+like we used above).  Navigate to the `Tables` -> `Locomotives` dialog box,
+and then click on the `Interface` tab.  In the `Interface ID` box type
+`RPIW-CAN`.  Select the protocol appropriate for your loco, then click `OK`.
+At this point, you can start running the loco.  Repeat as needed for further
+locos.
 
 Connect the MS2 (or CS2/CS3) controller to the Gleisbox.
 Power up the system by plugging in the Märklin power supply to the Gleisbox.
