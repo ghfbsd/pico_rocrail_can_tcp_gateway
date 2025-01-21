@@ -110,7 +110,7 @@ cp TCP-CAN.py /pyboard/main.py
 The connection to the Märklin Gleisbox is by way of pins on the mini-DIN 10
 pin connection socket on the board.  See the diagram below:
 
-![mini-DIN 10 connector image](https://github.com/ghfbad/pico_rocrail_can_tcp_gateway/blob/main/images/mini-DIN10.jpg?raw=true)
+![mini-DIN 10 connector image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/mini-DIN10.jpg?raw=true)
 
 You need to connect the CAN low, CAN high and ground ("Masse") to your
 RB-P-CAN-485 board.
@@ -153,8 +153,8 @@ This is a permanent, unique host name assigned to the RPP; while your IP
 number might change, depending on your local network setup, the host name
 will not.  If you have DNS (or mDNS) features enabled on your network,
 you can get the IP address from that to configure your train controller.
-If your train controller accepts host names, then you can provide that and
-you don't need to know the IP address -- or whether it changes in future --
+If your train controller accepts host names, then you can provide the name and
+you don't need to know the IP address -- or care whether it changes in future --
 at all.
 
 To check whether you have DNS discovery of the RPP on your network, try
@@ -162,7 +162,8 @@ To check whether you have DNS discovery of the RPP on your network, try
 ping rpp-xxxxxx 15731
 ```
 and see if you get a reply.  If you do, great - otherwise use the IP address
-to configure your train controller.
+to configure your train controller ... and pay attention to the initial
+connection dialog.
 
 ## Using the Hub with Rocrail
 
@@ -174,7 +175,7 @@ You want to add a new controller to the list.
 Find the `New` button, select the `mbus` type, and `Add` it.
 You'll see a dialog like this:
 
-![dialog box image](https://github.com/ghfbad/pico_rocrail_can_tcp_gateway/blob/main/images/Add-dialog.jpg?raw=true)
+![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/Add-dialog.jpg?raw=true)
 
 Then:
 * Change `NEW` to some name that you prefer for the hub.
@@ -216,7 +217,7 @@ Once you're confident your boards are working, you don't need to have the
 USB connected to your computer.  Rather, you can connect it to a USB power
 source to run the boards and the RPP.  It does not matter which USB connection
 you use: either of the connectors on the  RPP or the RB-P-CAN-485 board will
-run them both.  
+run them both.  Only the RPP's USB connection will talk to **rshell** though.
 
 ## Operational notes
 
