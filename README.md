@@ -16,7 +16,7 @@ them out over the WiFi network
 
 The communications protocol used is a public one
 [published by Märklin](https://streaming.maerklin.de/public-media/cs2/cs2CAN-Protokoll-2_0.pdf) using TCP as a transport layer on WiFi and the CAN
-protocol over wires connecting the various Märklin] boxes.
+protocol over wires connecting the various Märklin boxes.
 This same protocol is used by popular train control software, in particular
 [Rocrail](https://wiki.rocrail.net/doku.php?id=start),
 [iTrain](https://www.berros.eu/en/itrain/),
@@ -141,7 +141,7 @@ you're running **rshell**, and `>>>` is the MicroPython REPL prompt.)
 You should see something similar to
 
 ```
-TCP <-> CAN packet router (AN215)
+TCP <-> CAN packet hub (AN215)
 Connected on 10.0.1.28 as rpp-747a13
 CAN initialized successfully, waiting for traffic.
 TCP connection made, waiting for traffic on port 15731.
@@ -149,7 +149,7 @@ TCP connection made, waiting for traffic on port 15731.
 ```
 
 There are a few useful things to note in the startup messages.
-First, they give the IP address and device name that you will need this to set
+First, they give the IP address and device name that you will need to set
 up your train controller to communicate with the wireless hub.  Second, it
 gives you the port number the TCP traffic is expected on.  You'll also need
 this to configure your train controller.  (Port 15731 is the port customarily

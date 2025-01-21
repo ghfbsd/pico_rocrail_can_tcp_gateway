@@ -1,6 +1,7 @@
 # Decodes CAN packet according to Marklin protocol
 
-# See the LICENSE file associated with this repository.
+# Copyright (c) 2025 George Helffrich
+# Released under the MIT License (MIT) - see LICENSE file
 
 # See https://github.com/ghfbsd
 

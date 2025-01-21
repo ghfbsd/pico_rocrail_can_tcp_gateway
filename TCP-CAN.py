@@ -1,4 +1,7 @@
-# TCP - CAN bus router
+# TCP - CAN bus hub
+
+# Copyright (c) 2025 George Helffrich
+# Released under the MIT License (MIT) - see LICENSE file
 
 # CPU: Raspberry Pi pico W
 # CAN device: RB-P-CAN-RS485 board by Joy-IT (www.joy-it.net)
@@ -8,9 +11,6 @@
 
 # 16 Jan. 2025
 # last revision 21 Jan. 2025
-
-# See the LICENSE file associated with this repository.
-# See https://github.com/ghfbsd
 
 VER = 'AN215'                    # version ID
 
@@ -256,7 +256,7 @@ async def HEARTBEAT():
 
 from asyncio import Loop
 
-print('TCP <-> CAN packet router (%s)' % VER)
+print('TCP <-> CAN packet hub (%s)' % VER)
 try:
    from marklin import decode    # Marklin CS2 CAN packet decoder
    avail = True
