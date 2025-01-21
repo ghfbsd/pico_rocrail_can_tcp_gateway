@@ -64,8 +64,8 @@ def decode(ID,data,detail=False) -> str:
                data[0:4].hex()
             )
             return mess
-         mess += ' LOCO PROTOCOL CHANGE 00/05 (%s): %s' % (
-            data[0:4].hex(),data[5].hex()
+         mess += ' LOCO PROTOCOL CHANGE 00/05 (%s): %02x' % (
+            data[0:4].hex(),int(data[5])
          )
          return mess
       if sub == 0x06:        # ACCESSORY SWITCH TIME
