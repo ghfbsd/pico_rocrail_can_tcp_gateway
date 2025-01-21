@@ -25,7 +25,8 @@ Rocrail, iTrain, and JMRI among possibly others.
 There are only two pieces of hardware required along with cabling:
 * a Raspberry Pi Pico Wireless (with headers);
 * a Joy-IT CAN-RS485 card for the Raspberry Pi Pico (RB-P-CAN-485);
-* two male-male breadboard jumper wires;
+* two male-male breadboard jumper wires, plus another three for connecting the
+CAN card to the Gleisbox;
 * USB to mini-USB cable.
 
 Total cost of these items is about 20 euros (Jan. 2025).
@@ -60,10 +61,10 @@ Try the `can_test_intr.py` program to verify that it is working properly.
 ### Download the software
 
 The program needs a few bits and bobs to run with MicroPython.
-The most important one is the CAN bus driver.  You can get them
-[here](https://github.com/ghfbsd/MicroPython_CAN_BUS_MCP2515).  They extend the
-ones provided by the manufacturer to enable more advanced features of the board 
-that the TCP-CAN reader uses.
+The most important one is the CAN bus driver.  You can get it
+[here](https://github.com/ghfbsd/MicroPython_CAN_BUS_MCP2515).  It extends the
+one provided by the manufacturer to enable more advanced features of the board 
+that the TCP-CAN reader uses (interrupts, error classification).
 
 Assuming that you are running **rshell** from the directory where you downloaded
 this repository's contents, and that the CAN bus driver is in a subdirectory
@@ -184,7 +185,8 @@ Then:
 * Change `NEW` to some name that you prefer for the hub.
 * Select `TCP` as the type
 * Fill in `Hostname` with the IP number (or `rpp-xxxxxx` if you have DNS)
-* Fill in the `:` field following `Hostname` with 15731.
+* Fill in the `:` field following `Hostname` with 15731.  (Or leave it blank,
+which Rocrail assumes to mean 15731 for TCP.)
 * Click `OK` to add.
 
 Back in the `Controller` dialog, make sure that your controller is selected.
@@ -246,5 +248,5 @@ CANservice to Rocrail (services of Rocrail's interest are shown
 [here](https://wiki.rocrail.net/doku.php?id=mdns-en))
 so that Rocrail can discover the hub automatically.
 A restriction in MicroPython's support of the RPP (as of Jan. 2025) prevents
-this, however, because use of port 5353 (mDNS) is blocked by MicroPython's use
-of it.
+this, however, because use of port 5353 (mDNS) is blocked by MicroPython's own
+use of it.
