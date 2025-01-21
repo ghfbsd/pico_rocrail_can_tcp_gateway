@@ -61,7 +61,7 @@ def decode(ID,data,detail=False) -> str:
       if sub == 0x05:        # LOCO DATA PROTOCOL
          if dlen != 6:
             mess += ' LOCO PROTOCOL CHANGE 00/05 (%s): garbled' % (
-               data[0:4].hex(),
+               data[0:4].hex()
             )
             return mess
          mess += ' LOCO PROTOCOL CHANGE 00/05 (%s): %s' % (
