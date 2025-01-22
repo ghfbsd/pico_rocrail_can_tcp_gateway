@@ -7,7 +7,7 @@
 This is a low-cost solution to the goal of running a Märklin train set by a
 remote computer/handheld device without needing a CS2/CS3 controller.  This
 device works with the 60116 Gleisbox typically provided with starter train
-sets (and the 60657 MS2 controller).
+sets (along with the 60657 MS2 controller).
 
 The hardware and software implement a wireless hub that does two things:
 * takes incoming train control packets over WiFi and sends them to the trains
