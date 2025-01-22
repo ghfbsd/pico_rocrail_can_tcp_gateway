@@ -6,7 +6,7 @@
 
 This is a low-cost solution to the goal of running a Märklin train set without
 needing a  CS2/CS3 controller.  This device works with the 60116 Gleisbox
-and a 60657 MS2 controller, typically provided with starter train sets.
+(and a 60657 MS2 controller), typically provided with starter train sets.
 
 The hardware and software implement a wireless hub that does two things:
 * takes incoming train control packets over WiFi and sends them to the trains
@@ -199,11 +199,7 @@ and then click on the `Interface` tab.  In the `Interface ID` box type
 At this point, you can start running the loco.  Repeat as needed for further
 locos.
 
-Connect the MS2 (or CS2/CS3) controller to the Gleisbox.
-Power up the system by plugging in the Märklin power supply to the Gleisbox.
-After initializing, the MS2 will be in the STOP state (red STOP lights on);
-press STOP to put it into operation mode (red STOP lights off).
-
+Power up the system by plugging in the Märklin power supply to the Gleisbox[^1].
 At this point, you should start to see packets flowing from Rocrail and from
 the Gleisbox.  They will resemble this:
 
@@ -215,6 +211,15 @@ CAN -> TCP 00 31 4f 20 08 47 46 e7 0b 01 3e 00 10
 CAN -> TCP 00 31 4f 20 08 47 46 e7 0b 01 3e 00 10
    R PING 18 (4746e70b): Gleisbox 601xx ver 013e
 ```
+
+[^1]: You do not need the MS2 (or CS2/CS3) to operate the system
+(but you may wish to connect it anyway -- it will act as a slave/repeater to
+your computer controller software).
+If you have the MS2 connected, after initializing it will be in the STOP state
+(red STOP lights on); press STOP to put it into operation mode
+(red STOP lights off).
+
+
 
 Anything prefixed with `C` is a command, and with `R` is a response.
 The command is telling the system what the time is.  The response is from
@@ -257,3 +262,7 @@ so that Rocrail can discover the hub automatically.
 A restriction in MicroPython's support of the RPP (as of Jan. 2025) prevents
 this, however, because use of port 5353 (mDNS) is blocked by MicroPython's own
 use of it.
+
+## Acknowledgements
+
+* Christophe Bobille for the inspiration (see [this post](https://www.locoduino.org/spip.php?article361))
