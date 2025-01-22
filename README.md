@@ -4,9 +4,10 @@
 
 ## Introduction
 
-This is a low-cost solution to the goal of running a Märklin train set without
-needing a  CS2/CS3 controller.  This device works with the 60116 Gleisbox
-(and a 60657 MS2 controller), typically provided with starter train sets.
+This is a low-cost solution to the goal of running a Märklin train set by a
+remote computer/handheld device without needing a CS2/CS3 controller.  This
+device works with the 60116 Gleisbox typically provided with starter train
+sets (and the 60657 MS2 controller).
 
 The hardware and software implement a wireless hub that does two things:
 * takes incoming train control packets over WiFi and sends them to the trains
@@ -21,7 +22,8 @@ This same protocol is used by popular train control software, in particular
 [Rocrail](https://wiki.rocrail.net/doku.php?id=start),
 [iTrain](https://www.berros.eu/en/itrain/),
 [TrainController](https://www.freiwald.com/pages/traincontroller.htm)
-and possibly with [JMRI](https://www.jmri.org) among others.
+and possibly also with [JMRI](https://www.jmri.org) and
+[BTrain](https://github.com/jean-bovet/BTrain), among others.
 
 ## Requirements
 
