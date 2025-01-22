@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 21 Jan. 2025
+# last revision 22 Jan. 2025
 
-VER = 'AN215'                    # version ID
+VER = 'AN225'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -231,15 +231,6 @@ async def CAN_WRITER(MERR=5, MCNT=500):
          asyncio.sleep_ms(10)
          if cnt > MCNT:          # Abandon packet after this many tries
             break
-
-try:
-   from marklin import decode    # Marklin CS2 CAN packet decoder
-   avail = True
-except:
-   def decode(ID, data, detail=None):
-      return ''
-   avail = False                 # don't use it if not available
-   print('No Märklin packet decoding, only logging raw data.')
 
 async def DEBUG_OUT():
    global rrhash, avail
