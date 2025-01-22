@@ -12,13 +12,13 @@
 # 16 Jan. 2025
 # last revision 22 Jan. 2025
 
-VER = 'AN225'                    # version ID
+VER = 'AN225a'                   # version ID
 
 SSID = "****"
 PASS = "****"
 
-ROCRAIL_PORT = 15731             # Marklin diktat
-ROCSIZE = 13                     # Fixed by protocol definition
+CS2_PORT = 15731                 # Marklin diktat
+CS2_SIZE = 13                    # Fixed by protocol definition
 
 QSIZE = 25                       # Size of various I/O queues (overkill)
 
@@ -122,16 +122,16 @@ class iCAN:                      # interrupt driven CAN message sniffer
 
 from threadsafe import ThreadSafeQueue
 
-CANtoTCP = ThreadSafeQueue(QSIZE*[bytearray(ROCSIZE)])
-TCPtoCAN = ThreadSafeQueue(QSIZE*[bytearray(ROCSIZE)])
-debugQUE = ThreadSafeQueue(QSIZE*[bytearray(ROCSIZE)])
+CANtoTCP = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
+TCPtoCAN = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
+debugQUE = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
 
 TCP_R, TCP_W = None, None
 TCP_RERR, TCP_WERR = False, False
 
 rrhash = 0
 
-async def TCP_SERVER(R, W, PORT=ROCRAIL_PORT):
+async def TCP_SERVER(R, W, PORT=CS2_PORT):
    # Callback when RocRail client connects to us
    global TCP_R, TCP_W, TCP_RERR, TCP_WERR
    print('TCP connection made, waiting for traffic on port %d.' % PORT)
@@ -145,7 +145,7 @@ async def TCP_SERVER(R, W, PORT=ROCRAIL_PORT):
 
 async def TCP_READER():
    # packet layout:
-   #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = ROCSIZE
+   #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
    #    -----------  --  -----------------------
    #       CAN ID    len  data (left justified)
    global TCP_R, TCP_RERR, rrhash
@@ -155,12 +155,12 @@ async def TCP_READER():
          continue
 
       try:                       # Serve it
-         pkt = await TCP_R.readexactly(ROCSIZE)
-         assert len(pkt) == ROCSIZE
+         pkt = await TCP_R.readexactly(CS2_SIZE)
+         assert len(pkt) == CS2_SIZE
          rrhash = int.from_bytes(pkt[2:4])
          await TCPtoCAN.put(pkt)
          await debugQUE.put(pkt)
-      except EOFError:
+      except EOFError:           # Connection lost/client disconnect
          TCP_RERR, TCP_R = True, None
          continue
 
@@ -169,7 +169,7 @@ async def CAN_READER():
    can = iCAN()
    can.run(CAN_IN)
 
-def CAN_IN(msg, err, buf=bytearray(ROCSIZE)):
+def CAN_IN(msg, err, buf=bytearray(CS2_SIZE)):
    if err:
       stat = can.intf().getStatus()     # Order matters: status first ...
       intr = can.intf().getInterrupts() # ...then interrupt reg
@@ -204,16 +204,16 @@ async def TCP_WRITER():
 
       try:                       # Serve it
          async for pkt in CANtoTCP:
-            assert len(pkt) == ROCSIZE
+            assert len(pkt) == CS2_SIZE
             TCP_W.write(pkt)
             TCP_W.drain()
-      except OSError:
+      except OSError:            # Connection lost/client disconnect
          TCP_WERR, TCP_W = True, None
 
 async def CAN_WRITER(MERR=5, MCNT=500):
    global can
    async for pkt in TCPtoCAN:
-      assert len(pkt) == ROCSIZE
+      assert len(pkt) == CS2_SIZE
       cnt = 0
       while can.send(
             ID=int.from_bytes(pkt[0:4]),
@@ -235,7 +235,7 @@ async def CAN_WRITER(MERR=5, MCNT=500):
 async def DEBUG_OUT():
    global rrhash, avail
    async for buf in debugQUE:
-      assert len(buf) == ROCSIZE
+      assert len(buf) == CS2_SIZE
       data = ' '.join(           # put space between every octet
          map(''.join, zip(*[iter(buf.hex())]*2))
       )
@@ -271,21 +271,19 @@ try:
    from marklin import decode    # Marklin CS2 CAN packet decoder
    avail = True
 except:
-   def decode(ID, data, detail=None):
-      return ''
    avail = False                 # don't use it if not available
    print('No Märklin packet decoding, only logging raw data.')
 
 #Connect to WLAN
 wlan = network.WLAN(network.STA_IF)
 if not wlan.isconnected():
-    wlan.active(True)
-    mac = wlan.config('mac')
-    host = 'rpp-' + ''.join('{:02x}'.format(b) for b in mac[3:])
-    wlan.config(hostname = host)
-    wlan.connect(SSID, PASS)
+   wlan.active(True)
+   mac = wlan.config('mac')
+   host = 'rpp-' + ''.join('{:02x}'.format(b) for b in mac[3:])
+   wlan.config(hostname = host)
+   wlan.connect(SSID, PASS)
 else:
-    host = wlan.config('hostname')
+   host = wlan.config('hostname')
 
 while not wlan.isconnected():
    # Fast flash while waiting for wifi connection; boot button restarts.
@@ -307,4 +305,4 @@ canw = asyncio.create_task(CAN_WRITER())
 dbug = asyncio.create_task(DEBUG_OUT())
 beat = asyncio.create_task(HEARTBEAT())
 
-Loop.run_until_complete(asyncio.start_server(TCP_SERVER,ip,ROCRAIL_PORT))
+Loop.run_until_complete(asyncio.start_server(TCP_SERVER,ip,CS2_PORT))
