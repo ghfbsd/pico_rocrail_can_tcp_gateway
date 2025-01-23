@@ -143,10 +143,10 @@ you're running **rshell**, and `>>>` is the MicroPython REPL prompt.)
 You should see something similar to
 
 ```
-TCP <-> CAN packet hub (AN215)
-Connected on 10.0.1.28 as rpp-747a13
+TCP <-> CAN packet hub (AN235)
+Available at 10.0.1.28 as rpp-747a13, port 15731.
 CAN initialized successfully, waiting for traffic.
-TCP connection made, waiting for traffic on port 15731.
+TCP connection made, waiting for traffic.
 ...
 ```
 
@@ -193,6 +193,17 @@ Then:
 * Fill in the `:` field following `Hostname` with 15731.  (Or leave it blank,
 which Rocrail assumes to mean 15731 for TCP.)
 * Click `OK` to add.
+
+It should look like this:
+
+![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/mbus-1.jpg?raw=true)
+
+If you want to run **without** the MS2 controller attached to the Gleisbox,
+go to the `Options` panel, and make sure `Master` is selected, as shown below:
+
+![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/mbus-2.jpg?raw=true)
+
+Otherwise, leave it unselected.
 
 The loco you want to drive has to be connected to this controller (say, RPIW-CAN
 like we used above).  Navigate to the `Tables` -> `Locomotives` dialog box,

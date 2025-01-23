@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 22 Jan. 2025
+# last revision 23 Jan. 2025
 
-VER = 'AN225a'                   # version ID
+VER = 'AN235'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -131,10 +131,10 @@ TCP_RERR, TCP_WERR = False, False
 
 rrhash = 0
 
-async def TCP_SERVER(R, W, PORT=CS2_PORT):
+async def TCP_SERVER(R, W):
    # Callback when RocRail client connects to us
    global TCP_R, TCP_W, TCP_RERR, TCP_WERR
-   print('TCP connection made, waiting for traffic on port %d.' % PORT)
+   print('TCP connection made, waiting for traffic.')
    TCP_R, TCP_W = R, W
    while True:
       await asyncio.sleep(15)
@@ -296,7 +296,7 @@ while not wlan.isconnected():
 
 pico_led.on()
 ip = wlan.ifconfig()[0]
-print('Connected on {} as {}'.format(ip,host))
+print('Available at {} as {}, port {:d}.'.format(ip,host,CS2_PORT))
 
 canr = asyncio.create_task(CAN_READER())
 tcpr = asyncio.create_task(TCP_READER())
