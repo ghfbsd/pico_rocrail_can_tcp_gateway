@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 23 Jan. 2025
+# last revision 24 Jan. 2025
 
-VER = 'AN235'                    # version ID
+VER = 'AN245'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -279,7 +279,7 @@ wlan = network.WLAN(network.STA_IF)
 if not wlan.isconnected():
    wlan.active(True)
    mac = wlan.config('mac')
-   host = 'rpp-' + ''.join('{:02x}'.format(b) for b in mac[3:])
+   host = 'CS2hub-' + ''.join('{:02x}'.format(b) for b in mac[3:])
    wlan.config(hostname = host)
    wlan.connect(SSID, PASS)
 else:

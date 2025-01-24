@@ -128,7 +128,7 @@ on the Gleisbox.
 
 **Be very careful to avoid the "Versorgung +" pin.  This is the 18V power
 supply output from the Gleisbox.  If 18V is connected to your CAN bus, it will
-damage it (the bus operates on 3.3V).**
+be damaged (the bus operates on 3.3V).**
 
 ### Test the board
 
@@ -143,8 +143,8 @@ you're running **rshell**, and `>>>` is the MicroPython REPL prompt.)
 You should see something similar to
 
 ```
-TCP <-> CAN packet hub (AN235)
-Available at 10.0.1.28 as rpp-747a13, port 15731.
+TCP <-> CAN packet hub (AN245)
+Available at 10.0.1.28 as CS2hub-747a13, port 15731.
 CAN initialized successfully, waiting for traffic.
 TCP connection made, waiting for traffic.
 ...
@@ -157,7 +157,7 @@ gives you the port number the TCP traffic is expected on.  You'll also need
 this to configure your train controller.  (Port 15731 is the port customarily
 used by Märklin to communicate by TCP with a Gleisbox.)
 
-Another useful thing is the host name of the hub, `rpp-xxxxxx`.
+Another useful thing is the host name of the hub, `CS2hub-xxxxxx`.
 This is a permanent, unique host name assigned to the RPP; while your IP
 number might change, depending on your local network setup, the host name
 will not.  If you have DNS (or mDNS) features enabled on your network,
@@ -168,7 +168,7 @@ at all.
 
 To check whether you have DNS discovery of the RPP on your network, try
 ```
-ping -p 15731 rpp-xxxxxx
+ping -p 15731 CS2hub-xxxxxx
 ```
 and see if you get a reply.  If you do, great - otherwise use the IP address
 to configure your train controller ... and pay attention to the initial
@@ -189,7 +189,7 @@ You'll see a dialog like this:
 Then:
 * Change `NEW` to some name that you prefer for the hub, e.g. RPIW-CAN.
 * Select `TCP` as the type
-* Fill in `Hostname` with the IP number (or `rpp-xxxxxx` if you have DNS)
+* Fill in `Hostname` with the IP number (or `CS2hub-xxxxxx` if you have DNS)
 * Fill in the `:` field following `Hostname` with 15731.  (Or leave it blank,
 which Rocrail assumes to mean 15731 for TCP.)
 * Click `OK` to add.
