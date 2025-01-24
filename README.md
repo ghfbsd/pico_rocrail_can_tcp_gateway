@@ -60,8 +60,6 @@ RB-P-CAN-485, do it now.
 * Plug the RPP into the RB-P-CAN-485 board.
 * Jumper CS to pin 9, and INT to pin 15.
 * Plug the USB cable into the RPP and connect it to your computer.
-* Start **rshell** and connect to the RPP to test the RB-P-CAN-485 board.
-Try the `can_test_intr.py` program to verify that it is working properly.
 
 ### Download the software
 
@@ -69,7 +67,8 @@ The program needs a few bits and bobs to run with MicroPython.
 The most important one is the CAN bus driver.  You can get it
 [here](https://github.com/ghfbsd/MicroPython_CAN_BUS_MCP2515).  It extends the
 one provided by the manufacturer to enable more advanced features of the board 
-that the TCP-CAN reader uses (interrupts, error classification).
+that the TCP-CAN reader uses (interrupts, error classification,
+loopback testing).
 
 Assuming that you are running **rshell** from the directory where you downloaded
 this repository's contents, and that the CAN bus driver is in a subdirectory
@@ -84,6 +83,15 @@ cd ..
 after you do this, you should have the Python CAN bus driver code in the
 directory `canbus` on the RPP.  (You can check by `ls /pyboard` from **rshell**;
 you should only see the directory `canbus`.)
+
+#### Test the CAN board
+
+Start **rshell** and connect to the RPP to test the RB-P-CAN-485 board.
+Try the `can_test_intr.py` in the
+[RB-P-CAN-485 repository](https://github.com/ghfbsd/MicroPython_CAN_BUS_MCP2515)
+to verify that it is working properly.
+
+### Download more software
 
 Next, download two utilities used by the program: a pre-release version of
 [asynchronous queue management](https://github.com/peterhinch/micropython-async/tree/master) for MicroPython and a Märklin packet decoder
