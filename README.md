@@ -88,7 +88,7 @@ you should only see the directory `canbus`.)
 
 Start **rshell** and connect to the RPP to test the RB-P-CAN-485 board.
 Try the `can_test_intr.py` in the
-[RB-P-CAN-485 repository](https://github.com/ghfbsd/MicroPython_CAN_BUS_MCP2515)
+[RB-P-CAN-485 repository](https://github.com/ghfbsd/RB-P-CAN-485)
 to verify that it is working properly.
 
 ### Download more software
