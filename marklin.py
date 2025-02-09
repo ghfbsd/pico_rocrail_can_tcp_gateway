@@ -242,6 +242,26 @@ def decode(ID,data,detail=False) -> str:
       mess += '(garbled)'
       return mess
 
+   if comm == 0x11:          # FEEDBACK
+      mess = resp + ' FEEDBACK 11 '
+      if dlen < 4:
+         mess += '(garbled)'
+         return mess
+
+      mess += 'addr %02x%02x %02x%02x ' % (
+         int(data[0]),int(data[1]),int(data[2]),int(data[3])
+      )
+      if dlen == 5:
+         mess += 'par %02x' % int(data[4])
+         return mess
+      if dlen == 8:
+         mess += 'old %d new %d speed %d' % (
+            int(data[4]),int(data[5]),int.from_bytes(data[6:8])
+         )
+      else:
+         mess += '(garbled)'
+      return mess
+
    if comm == 0x18:          # PING
       mess = resp + ' PING 18 '
       if dlen == 0:
