@@ -58,8 +58,10 @@ it requires some setting up before it will work with your RPP.
 * If you want to solder jumpers to the CS and INT connections on the
 RB-P-CAN-485, do it now. 
 * Plug the RPP into the RB-P-CAN-485 board.
-* Jumper CS to pin GP17, and INT to pin GP20.
+* Jumper CS to pin GP17, and INT to pin GP20[^1].
 * Plug the USB cable into the RPP and connect it to your computer.
+
+[^1]: The photo shows different jumper pins for a previous code release; be assured the text is correct.
 
 ### Download the software
 
@@ -220,7 +222,7 @@ and then click on the `Interface` tab.  In the `Interface ID` box type
 At this point, you can start running the loco.  Repeat as needed for further
 locos.
 
-Power up the system by plugging in the Märklin power supply to the Gleisbox[^1].
+Power up the system by plugging in the Märklin power supply to the Gleisbox[^2].
 At this point, you should start to see packets flowing from Rocrail and from
 the Gleisbox.  They will resemble this:
 
@@ -233,7 +235,7 @@ CAN -> TCP 00 31 4f 20 08 47 46 e7 0b 01 3e 00 10
    R PING 18 (4746e70b): Gleisbox 601xx ver 013e
 ```
 
-[^1]: You do not need the MS2 (or CS2/CS3) to operate the system
+[^2]: You do not need the MS2 (or CS2/CS3) to operate the system
 (but you may wish to connect it anyway -- it will act as a slave/repeater to
 your computer controller software).
 If you have the MS2 connected, after initializing it will be in the STOP state
