@@ -58,7 +58,7 @@ it requires some setting up before it will work with your RPP.
 * If you want to solder jumpers to the CS and INT connections on the
 RB-P-CAN-485, do it now. 
 * Plug the RPP into the RB-P-CAN-485 board.
-* Jumper CS to pin 9, and INT to pin 15.
+* Jumper CS to pin GP17, and INT to pin GP20.
 * Plug the USB cable into the RPP and connect it to your computer.
 
 ### Download the software

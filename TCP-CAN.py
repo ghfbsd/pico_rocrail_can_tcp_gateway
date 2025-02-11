@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 24 Jan. 2025
+# last revision 11 Feb. 2025
 
-VER = 'AN245'                    # version ID
+VER = 'EB115'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -21,6 +21,8 @@ CS2_PORT = 15731                 # Marklin diktat
 CS2_SIZE = 13                    # Fixed by protocol definition
 
 QSIZE = 25                       # Size of various I/O queues (overkill)
+
+INT_PIN = 20                     # Interrupt pin for CAN board
 
 import uasyncio as asyncio
 import network
@@ -42,18 +44,20 @@ class iCAN:                      # interrupt driven CAN message sniffer
       sck=Pin(18), mosi=Pin(19), miso=Pin(16)
    )
 
-   def __init__(self):
+   def __init__(self, intr=None):
       from machine import Pin
       from canbus import Can, CanError
       from canbus.internal import CAN_SPEED
 
+      if intr is None:
+         raise RuntimeError('Need to provide CAN interrupt pin')
       self.flag = asyncio.ThreadSafeFlag()
-      self.pin = Pin(15,Pin.IN,Pin.PULL_UP)
+      self.pin = Pin(intr, Pin.IN, Pin.PULL_UP)
       self.pin.irq(              # this defines the interrupt handler (lambda)
          trigger=Pin.IRQ_FALLING,
          handler=lambda pin: self.flag.set(),
          hard=True)
-      self.can = Can()
+      self.can = Can(spics=17)   # use default CS pin for hardware SPI 0
       # Initialize the CAN interface.  Reference says 250 kbps speed.
       ret = self.can.begin(bitrate=CAN_SPEED.CAN_250KBPS)
       if ret != CanError.ERROR_OK:
@@ -165,8 +169,8 @@ async def TCP_READER():
          continue
 
 async def CAN_READER():
-   global can
-   can = iCAN()
+   global can, INT_PIN
+   can = iCAN(intr=INT_PIN)
    can.run(CAN_IN)
 
 def CAN_IN(msg, err, buf=bytearray(CS2_SIZE)):
