@@ -265,6 +265,8 @@ There are two board monitor functions provided via the LED on the RPP.
 * When connecting to WiFi, there is a fast LED flash.  Once the connection
 is made, you will see a slower flash.
 To retry the WiFi connection, press the `BOOT SEL` button on the RPP.
+(If you're unable to connect, check that you entered your WiFi credentials
+correctly in the program before downloading it to the RPP.)
 * While running the hub, there is a slow heartbeat on the RPP to show you
 that the program is running.  If the flashing stops (no light or continuous
 light), something is hung.  To restart, press the `BOOT SEL` button on the RPP.
