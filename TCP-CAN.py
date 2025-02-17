@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 11 Feb. 2025
+# last revision 17 Feb. 2025
 
-VER = 'EB115'                    # version ID
+VER = 'EB175'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -40,8 +40,21 @@ class iCAN:                      # interrupt driven CAN message sniffer
    from canbus.internal import CAN_SPEED
    from machine import Pin, SPI
 
+   # These pin assignments are appropriate for RB-P-CAN-485 Joy-IT board
+   SPI_CS = 17
+   SPI_SCK = 18
+   SPI_MOSI = 19
+   SPI_MISO = 16
+
+   # These should work with a Waveshare Pico-CAN-B board; use with INT_PIN = 21
+   # SPI_CS = 5                  # untested
+   # SPI_SCK = 6                 # untested
+   # SPI_MOSI = 7                # untested
+   # SPI_MISO = 4                # untested
+
+
    prep = SPI(0,                 # configure SPI to use correct pins
-      sck=Pin(18), mosi=Pin(19), miso=Pin(16)
+      sck=Pin(SPI_SCK), mosi=Pin(SPI_MOSI), miso=Pin(SPI_MISO)
    )
 
    def __init__(self, intr=None):
@@ -57,7 +70,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
          trigger=Pin.IRQ_FALLING,
          handler=lambda pin: self.flag.set(),
          hard=True)
-      self.can = Can(spics=17)   # use default CS pin for hardware SPI 0
+      self.can = Can(spics=self.SPI_CS) # CS pin for hardware SPI 0
       # Initialize the CAN interface.  Reference says 250 kbps speed.
       ret = self.can.begin(bitrate=CAN_SPEED.CAN_250KBPS)
       if ret != CanError.ERROR_OK:
