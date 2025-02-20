@@ -114,11 +114,17 @@ def decode(ID,data,detail=False) -> str:
             mess += ' STATUS 00/0B (%s): channel %d' % (
                data[0:4].hex(), int(data[5])
             )
+            return mess
          if dlen == 8 and resp == 'C':
-            mess += ' STATUS 00/0B (%s): channel %d config %d' % (
+            mess += ' STATUS 00/0B (%s): channel %d config %d %d' % (
                data[0:4].hex(),
-               int(data[5]),
-               int.from_bytes(data[6:8])
+               int(data[5]), int(data[6]), int(data[7])
+            )
+            return mess
+         if dlen == 8 and resp == 'R':
+            mess += ' STATUS 00/0B (%s): channel %d values %d %d' % (
+               data[0:4].hex(),
+               int(data[5]), int(data[6]), int(data[7])
             )
             return mess
          if dlen == 7 and resp == 'R':
@@ -227,6 +233,56 @@ def decode(ID,data,detail=False) -> str:
          )
          return mess
       mess += ' (%s): garbled' % data[0:4].hex()
+      return mess
+
+   if comm == 0x07:          # READ CONFIG
+      mess = resp + ' READ CONFIG 07'
+      loc = int.from_bytes(data[0:4]) & 0xffff
+      rng = loc >> 8 & 0xff
+      if dlen == 6 or dlen == 7:
+         mess += ' (%s): CV%d ' % (
+            data[0:4].hex(),
+            int.from_bytes(data[4:6]) & 0x3ff
+         )
+         if rng >= 0x40 and rng <= 0x7f: # MFX check
+            mess += ' MFX CV index %d ' % (int(data[4]) >> 2 & 0x3f)
+         if dlen == 7:
+            if resp == 'C':
+               mess += '%d bytes wanted' % (
+                  256 if data[6] == b'\x00' else int(data[6])
+               )
+            else:
+               mess += 'value %d 0x%02x' % (int(data[6]),int(data[6]))
+            return mess
+         mess += 'value UNREADABLE'
+      else:
+         mess += ' (garbled)'
+      return mess
+
+   if comm == 0x08:          # WRITE CONFIG
+      mess = resp + ' WRITE CONFIG 08'
+      if dlen != 8:
+         mess += ' (garbled)'
+         return mess
+      loc = int.from_bytes(data[0:4]) & 0xffff
+      rng = loc >> 8 & 0xff
+      mess += ' (%s): CV%d ' % (
+         data[0:4].hex(),
+         int.from_bytes(data[4:6]) & 0x3ff
+      )
+      if rng >= 0x40 and rng <= 0x7f: # MFX check
+         mess += 'MFX CV index %d ' % int(data[4]) >> 2 & 0x3f
+      mess += 'value %d 0x%02x,' % (int(data[6]),int(data[6]))
+      mess += ' %s track,' % ('main' if data[7] & 0x80 else 'programming')
+      if data[7] & 0x40: mess += ' multibyte,'
+      rng = data[7] >> 6 & 0x03
+      if rng == 0: mess += ' direct'
+      if rng == 1: mess += ' register'
+      if rng == 2: mess += ' bit %d %s%s' % (
+         int(data[6]) & 0x07,
+         'ON' if int(data[6]) & 0x08 else 'OFF',
+         ' (garbled)' if int(data[6]) ^ 0xf0 else ''
+      )
       return mess
 
    if comm == 0x0b:          # ACCESSORIES
