@@ -272,16 +272,10 @@ def decode(ID,data,detail=False) -> str:
       )
       if rng >= 0x40 and rng <= 0x7f: # MFX check
          mess += 'MFX CV index %d ' % int(data[4]) >> 2 & 0x3f
-      mess += 'value %d 0x%02x,' % (int(data[6]),int(data[6]))
-      mess += ' %s track' % ('main' if data[7] & 0x80 else 'programming')
-      if data[7] & 0x40: mess += ', multibyte'
-      rng = data[7] >> 6 & 0x03
-      if rng == 0: mess += ', direct'
-      if rng == 1: mess += ', register'
-      if rng == 2: mess += ', bit %d %s%s' % (
-         int(data[6]) & 0x07,
-         'ON' if int(data[6]) & 0x08 else 'OFF',
-         ' (garbled)' if int(data[6]) ^ 0xf0 else ''
+      mess += 'value %d 0x%02x, write %s verify %s' % (
+         int(data[6]), int(data[6]),
+         'OK' if data[7] & 0x80 else 'ERROR',
+         'OK' if data[7] & 0x40 else 'ERROR'
       )
       return mess
 
