@@ -1,4 +1,4 @@
-# Raspberry Pi Pico-based TCP-CAN hub
+# Raspberry Pi Pico-based TCP-CAN or UDP-CAN hub
 
 ![Gleisbox and board image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/complete.jpg?raw=true)
 
@@ -16,20 +16,21 @@ and accessories on the rails
 them out over the WiFi network
 
 The communications protocol used is a public one
-[published by Märklin](https://streaming.maerklin.de/public-media/cs2/cs2CAN-Protokoll-2_0.pdf) using TCP as a transport layer on WiFi and the CAN
+[published by Märklin](https://streaming.maerklin.de/public-media/cs2/cs2CAN-Protokoll-2_0.pdf) using either TCP as or UDP a transport layer on WiFi and the CAN
 protocol over wires connecting the various Märklin boxes.
 This same protocol is used by popular train control software, in particular
 [Rocrail](https://wiki.rocrail.net/doku.php?id=start),
 [iTrain](https://www.berros.eu/en/itrain/),
-[TrainController](https://www.freiwald.com/pages/traincontroller.htm)
-and possibly also with [JMRI](https://www.jmri.org) and
+[TrainController](https://www.freiwald.com/pages/traincontroller.htm),
+[JMRI](https://www.jmri.org) and possibly also with
 [BTrain](https://github.com/jean-bovet/BTrain), among others.
 
 ## Requirements
 
 There are only two pieces of hardware required along with cabling:
 * a Raspberry Pi Pico Wireless (with headers);
-* a Joy-IT CAN-RS485 card for the Raspberry Pi Pico (RB-P-CAN-485);
+* a Joy-IT CAN-RS485 card for the Raspberry Pi Pico (RB-P-CAN-485) or
+Waveshare Pico-CAN-B board (not yet tested but should work);
 * two male-male breadboard jumper wires, plus another three for connecting the
 CAN card to the Gleisbox;
 * USB to mini-USB cable.
@@ -52,8 +53,8 @@ The appropriate firmware for a RPP can be found [here](https://micropython.org/d
 ### Assemble the board
 
 Familiarize yourself with the
-[RB-P-CAN-485 board](https://github.com/ghfbsd/RB-P-CAN-485);
-it requires some setting up before it will work with your RPP.
+[RB-P-CAN-485 board](https://github.com/ghfbsd/RB-P-CAN-485) if you're using it;
+the board requires some setting up before it will work with your RPP.
 
 * If you want to solder jumpers to the CS and INT connections on the
 RB-P-CAN-485, do it now. 
@@ -63,13 +64,19 @@ RB-P-CAN-485, do it now.
 
 [^1]: The photo shows different jumper pins for a previous code release; be assured the text is correct.
 
+The Waveshare board does not need any preparation before use.
+
+* Plug the RPP into the RB-P-CAN-485 board.
+* Plug the USB cable into the RPP and connect it to your computer.
+
+
 ### Download the software
 
 The program needs a few bits and bobs to run with MicroPython.
 The most important one is the CAN bus driver.  You can get it
 [here](https://github.com/ghfbsd/MicroPython_CAN_BUS_MCP2515).  It extends the
 one provided by the manufacturer to enable more advanced features of the board 
-that the TCP-CAN reader uses (interrupts, error classification,
+that the CAN interface uses (interrupts, error classification,
 loopback testing).
 
 Assuming that you are running **rshell** from the directory where you downloaded
@@ -88,10 +95,12 @@ you should only see the directory `canbus`.)
 
 #### Test the CAN board
 
-Start **rshell** and connect to the RPP to test the RB-P-CAN-485 board.
+Start **rshell** and connect to the RPP to test the CAN interface board.
 Try the `can_test_intr.py` in the
 [RB-P-CAN-485 repository](https://github.com/ghfbsd/RB-P-CAN-485)
 to verify that it is working properly.
+If using the Waveshare board, make sure you configure
+`can_test_intr.py` properly to use the different pin assignments.
 
 ### Download more software
 
@@ -108,7 +117,17 @@ cp marklin.py /pyboard
 cp threadsafe.py /pyboard
 ```
 
-You have to edit the text of TCP-CAN.py to add your WiFi network credentials.
+At this point, you need to choose whether you want to connect over WiFi with
+TCP or UDP.  This depends on what controller software you plan to use.
+Here are some guidelines:
+
+* Use UDP with JMRI - as of March 2025, it does not support TCP
+* Rocrail works with either TCP or UDP, but Märklin's preference is for TCP
+* If you plan to use a single controller, use TCP
+* Use UDP if you want to have multiple controllers running the same layout.
+
+The TCP hub is `TCP-CAN.py` and the UDP hub is `UDP-CAN.py`.  With either one,
+you have to edit the program's text to add your WiFi network credentials.
 With your favorite editor, change the lines,
 ```
 SSID = "****"
@@ -117,10 +136,14 @@ PASS = "****"
 to the appropriate network name and password for your WiFi environment.
 Save the file.
 
-Finally, using **rshell**, load the TCP-CAN router program and make it run
+Finally, using **rshell**, load the program and make it run
 automatically when the RPP starts up.
 ```
 cp TCP-CAN.py /pyboard/main.py
+```
+or
+```
+cp UDP-CAN.py /pyboard/main.py
 ```
 
 ### Connect to the Gleisbox
@@ -131,7 +154,7 @@ pin connection socket on the side of the box.  See the diagram below:
 ![mini-DIN 10 connector image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/mini-DIN10.jpg?raw=true)
 
 You need to connect the CAN low, CAN high and ground ("Masse") to your
-RB-P-CAN-485 board.
+CAN board.
 Male-male breadboard jumpers are ideal for this: screw one set of pins to the
 board, and insert the other pins into the proper holes in the connector socket
 on the Gleisbox.
@@ -157,6 +180,15 @@ TCP <-> CAN packet hub (AN245)
 Available at 10.0.1.28 as CS2hub-747a13, port 15731.
 CAN initialized successfully, waiting for traffic.
 TCP connection made, waiting for traffic.
+...
+```
+or
+
+```
+UDP <-> CAN packet hub (AR095)
+Available at 10.0.1.7 as CS2hub-747a13.
+CAN initialized successfully, waiting for traffic.
+UDP listening, waiting for traffic.
 ...
 ```
 
@@ -187,7 +219,7 @@ connection dialog.
 ## Using the Hub with Rocrail
 
 Rocrail has built-in support for 
-Märklin's TCP protocol: the MBUS protocol.
+Märklin's TCP and UDP protocol: the MBUS protocol.
 In Rocrail's `Rocrail properties ...` dialog, navigate to the `Controller`
 panel.
 You want to add a new controller to the list.
@@ -198,10 +230,10 @@ You'll see a dialog like this:
 
 Then:
 * Change `NEW` to some name that you prefer for the hub, e.g. RPIW-CAN.
-* Select `TCP` as the type
-* Fill in `Hostname` with the IP number (or `CS2hub-xxxxxx` if you have DNS)
-* Fill in the `:` field following `Hostname` with 15731.  (Or leave it blank,
-which Rocrail assumes to mean 15731 for TCP.)
+* Select `TCP` as the type if using TCP or `UDP` if using UDP.
+* Fill in `Hostname` with the IP number (or `CS2hub-xxxxxx` if you have DNS).
+* Leave the `:` field following `Hostname` blank, which Rocrail assumes to
+mean 15731 for TCP and 15730/15731 for UDP.
 * Click `OK` to add.
 
 It should look like this:
@@ -256,7 +288,7 @@ accessories are commanded to change.
 Once you're confident your board is working, you don't need to have the
 USB connected to your computer.  Rather, you can connect it to a USB power
 source to run the board and the RPP.  It does not matter which USB connection
-you use: either of the connectors on the RPP or the RB-P-CAN-485 board will
+you use: either of the connectors on the RPP or the CAN board will
 run them both.  Only the RPP's USB connection will talk to **rshell** though.
 
 ## Operational notes
