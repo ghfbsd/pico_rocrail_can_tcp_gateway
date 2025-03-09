@@ -66,7 +66,7 @@ RB-P-CAN-485, do it now.
 
 The Waveshare board does not need any preparation before use.
 
-* Plug the RPP into the RB-P-CAN-485 board.
+* Plug the RPP into the Pico-CAN-B board.
 * Plug the USB cable into the RPP and connect it to your computer.
 
 
