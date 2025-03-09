@@ -147,7 +147,7 @@ debugQUE = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
 
 rrhash = 0
 
-async def UDP_READER(timeout=1):
+async def UDP_READER(timeout=0):
    # packet layout:
    #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
    #    -----------  --  -----------------------
@@ -167,8 +167,11 @@ async def UDP_READER(timeout=1):
          pkt, addr = s.recvfrom(CS2_SIZE)
          assert len(pkt) == CS2_SIZE
          rrhash = int.from_bytes(pkt[2:4])
-         await UDPtoCAN.put(pkt)
-         await debugQUE.put(pkt)
+      #  await UDPtoCAN.put(pkt)    # might miss incoming packet here?
+      #  await debugQUE.put(pkt)    # might miss incoming packet here?
+         UDPtoCAN.put_sync(pkt)     # put_sync because no await used
+         debugQUE.put_sync(pkt)     # put_sync because no await used
+         continue
       await asyncio.sleep(0)
 
 async def CAN_READER():
