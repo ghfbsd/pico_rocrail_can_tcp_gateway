@@ -134,7 +134,9 @@ SSID = "****"
 PASS = "****"
 ```
 to the appropriate network name and password for your WiFi environment.
-Save the file.
+The default configuration assumes you're using the Joy-IT board.
+If you have a Waveshare board, edit the code to use the right pin assignments
+for it.  Then, save the file.
 
 Finally, using **rshell**, load the program and make it run
 automatically when the RPP starts up.
