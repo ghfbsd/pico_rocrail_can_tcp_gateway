@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 17 Feb. 2025
+# last revision 13 Mar. 2025
 
-VER = 'EB175'                    # version ID
+VER = 'AR135'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -200,7 +200,7 @@ def CAN_IN(msg, err, buf=bytearray(CS2_SIZE)):
    buf[2] = msg.can_id >>  8 & 0xff 
    buf[3] = msg.can_id       & 0xff
    buf[4] = msg.dlc
-   buf[5:14] = 8*b'0'
+   buf[5:14] = 8*b'\x00'
    for i in range(msg.dlc): buf[5 + i] = msg.data[i]
    try:
       CANtoTCP.put_sync(buf)     # put_sync because no await used
