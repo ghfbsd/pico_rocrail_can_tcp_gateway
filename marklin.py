@@ -7,7 +7,7 @@
 
 def decode(ID,data,detail=False) -> str:
    hash = ID & 0xffff
-   resp = 'R' if ID >> 16 & 0x01 == 1 else 'C'
+   resp = 'R' if ID & 0x00010000 else 'C'
    comm = ID >> 17 & 0xff
    prio = ID >> 25 & 0x03
    dlen = len(data)
