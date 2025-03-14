@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 13 Mar. 2025
+# last revision 14 Mar. 2025
 
-VER = 'AR135'                    # version ID
+VER = 'AR145'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -245,7 +245,7 @@ async def CAN_WRITER(MERR=5, MCNT=500):
             )
          if errf & 0x30:         # TXBO/Bus-Off or TXEP/TX-Passive
             can.intf().clearErrorFlags(MERR=True)
-         asyncio.sleep_ms(10)
+         await asyncio.sleep_ms(10)
          if cnt > MCNT:          # Abandon packet after this many tries
             break
 
