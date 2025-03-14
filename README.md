@@ -29,14 +29,15 @@ This same protocol is used by popular train control software, in particular
 
 There are only two pieces of hardware required along with cabling:
 * a Raspberry Pi Pico Wireless (with headers);
-* a Joy-IT CAN-RS485 card for the Raspberry Pi Pico (RB-P-CAN-485) or
-Waveshare Pico-CAN-B board (not yet tested but should work);
-* two male-male breadboard jumper wires, plus another three for connecting the
-CAN card to the Gleisbox;
+* a Joy-IT CAN-RS485 board for the Raspberry Pi Pico (RB-P-CAN-485) or
+Waveshare Pico-CAN-B board;
+* two male-male breadboard jumper wires (only needed for the Joy-IT board),
+plus another three for connecting the CAN board to the Gleisbox;
 * USB to mini-USB cable.
 
 Total cost of these items is about 20 euros (Jan. 2025).
-There is no soldering required, although a minimal amount (two connections)
+There is no soldering required, although a minimal amount (two connections on
+the Joy-IT board)
 yields a more robust setup.
 
 ## Setup
