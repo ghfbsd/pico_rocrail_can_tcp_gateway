@@ -10,19 +10,36 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 14 Mar. 2025
+# last revision 15 Mar. 2025
 
-VER = 'AR145'                    # version ID
+VER = 'AR155'                    # version ID
 
 SSID = "****"
 PASS = "****"
 
-CS2_PORT = 15731                 # Marklin diktat
-CS2_SIZE = 13                    # Fixed by protocol definition
+CS2_PORT = const(15731)          # Marklin diktat
+CS2_SIZE = const(13)             # Fixed by protocol definition
 
-QSIZE = 25                       # Size of various I/O queues (overkill)
+QSIZE = const(25)                # Size of various I/O queues (overkill)
 
-INT_PIN = 20                     # Interrupt pin for CAN board
+CANBOARD = 'JI'
+
+if CANBOARD == 'JI':
+   # These pin assignments are appropriate for a RB-P-CAN-485 Joy-IT board
+   INT_PIN = 20                  # Interrupt pin for CAN board
+   SPI_CS = 17
+   SPI_SCK = 18
+   SPI_MOSI = 19
+   SPI_MISO = 16
+elif CANBOARD == 'WS':
+   # These pin assignments are appropriate for a Waveshare Pico-CAN-B board
+   INT_PIN = 21                  # Interrupt pin for CAN board
+   SPI_CS = 5
+   SPI_SCK = 6
+   SPI_MOSI = 7
+   SPI_MISO = 4
+else:
+   raise RuntimeError('***%s is an unsupported CAN board***' % CANBOARD)
 
 import uasyncio as asyncio
 import network
@@ -39,19 +56,6 @@ class iCAN:                      # interrupt driven CAN message sniffer
    from canbus import Can, CanError
    from canbus.internal import CAN_SPEED
    from machine import Pin, SPI
-
-   # These pin assignments are appropriate for RB-P-CAN-485 Joy-IT board
-   SPI_CS = 17
-   SPI_SCK = 18
-   SPI_MOSI = 19
-   SPI_MISO = 16
-
-   # These should work with a Waveshare Pico-CAN-B board; use with INT_PIN = 21
-   # SPI_CS = 5                  # untested
-   # SPI_SCK = 6                 # untested
-   # SPI_MOSI = 7                # untested
-   # SPI_MISO = 4                # untested
-
 
    prep = SPI(0,                 # configure SPI to use correct pins
       sck=Pin(SPI_SCK), mosi=Pin(SPI_MOSI), miso=Pin(SPI_MISO)
@@ -70,7 +74,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
          trigger=Pin.IRQ_FALLING,
          handler=lambda pin: self.flag.set(),
          hard=True)
-      self.can = Can(spics=self.SPI_CS) # CS pin for hardware SPI 0
+      self.can = Can(spics=SPI_CS) # CS pin for hardware SPI 0
       # Initialize the CAN interface.  Reference says 250 kbps speed.
       ret = self.can.begin(bitrate=CAN_SPEED.CAN_250KBPS)
       if ret != CanError.ERROR_OK:
@@ -253,8 +257,10 @@ async def DEBUG_OUT():
    global rrhash, avail
    async for buf in debugQUE:
       assert len(buf) == CS2_SIZE
-      data = ' '.join(           # put space between every octet
-         map(''.join, zip(*[iter(buf.hex())]*2))
+      data = '%04x %04x %02x %s' % (
+         int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
+         buf[4],
+         ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4)))
       )
       cid = int.from_bytes(buf[2:4])
       if cid == rrhash:
