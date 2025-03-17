@@ -262,11 +262,11 @@ At this point, you should start to see packets flowing from Rocrail and from
 the Gleisbox.  They will resemble this:
 
 ```
-TCP -> CAN 00 00 b7 66 08 00 00 00 00 20 0a 31 3c
-   C SYSTEM CLOCK 00/20 (00000000): 10:49 tick 60s
-CAN -> TCP 00 31 4f 20 08 47 46 e7 0b 01 3e 00 10
-   R PING 18 (4746e70b): Gleisbox 601xx ver 013e
-CAN -> TCP 00 31 4f 20 08 47 46 e7 0b 01 3e 00 10
+TCP -> CAN 0036 4767 00 0000 0000 0000 0000
+   C CAN BOOT 1B (everybody)
+TCP -> CAN 0030 4767 00 0000 0000 0000 0000
+   C PING 18 (everybody)
+CAN -> TCP 0031 4f20 08 4746 e70b 013e 0010
    R PING 18 (4746e70b): Gleisbox 601xx ver 013e
 ```
 
@@ -280,8 +280,9 @@ If you have the MS2 connected, after initializing it will be in the STOP state
 
 
 Anything prefixed with `C` is a command, and with `R` is a response.
-The command is telling the system what the time is.  The response is from
-the Gleisbox telling you that it is there and listening for commands.
+The command is telling the system to initialize itself.  Then there is a
+ping to locate the Gleisbox. The response is from the Gleisbox telling you
+that it is there and listening for commands.
 The Gleisbox sends `PING`s every 6 s or so - you'll see a lot of these.
 
 Start running your train with either the MS2 or Rocrail.  You will see
