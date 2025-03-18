@@ -1,4 +1,4 @@
-# UDB - CAN bus hub (without asyncio)
+# UDP - CAN bus hub (without asyncio)
 
 # Copyright (c) 2025 George Helffrich
 # Released under the MIT License (MIT) - see LICENSE file
