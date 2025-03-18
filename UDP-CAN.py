@@ -241,7 +241,7 @@ while True:
 
    pkt = cpkt[cti % QSIZE]
    n = sckr.readinto(pkt, CS2_SIZE)
-   if n is not None:             # First test: check for incoming packets
+   if n is not None:             # First task: check for incoming packets
       assert n == CS2_SIZE
       mem = memoryview(pkt)
       rrhash = int.from_bytes(mem[2:4])
@@ -279,7 +279,7 @@ while True:
       continue
 
    any, tst = False, can.intr()
-   while tst is not None:        # Second test: check for incoming CAN msgs
+   while tst is not None:        # Second task: check for incoming CAN msgs
       msg, err = tst
       if err:
          stat = can.intf().getStatus()     # Order matters: status first ...
@@ -328,7 +328,7 @@ while True:
       tst = can.cont()
    if any: continue
 
-   if UDPtoCAN.qsize() > 0:      # Third test: Put out a packet on the CAN bus
+   if UDPtoCAN.qsize() > 0:      # Third task: Put out a packet on the CAN bus
       pkt = UDPtoCAN.get_sync()
       cnt = 0
       while can.send(
@@ -349,7 +349,7 @@ while True:
             break
       continue
 
-   if CANtoUDP.qsize() > 0:      # Fourth test: Put out a packet on Wifi
+   if CANtoUDP.qsize() > 0:      # Fourth task: Put out a packet on Wifi
       pkt = CANtoUDP.get_sync()
       sckw.sendto(pkt, ('255.255.255.255',CS2_SPORT))
       continue
