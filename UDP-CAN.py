@@ -11,14 +11,14 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 15 Mar. 2025
-# last revision 17 Mar. 2025
+# last revision 20 Mar. 2025
 
 import network
 import usocket as socket
 import sys
 from time import sleep, sleep_ms, ticks_diff, ticks_us
 
-VER = 'AR175'                    # version ID
+VER = 'AR205'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -158,27 +158,24 @@ debugQUE = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
 rrhash = 0
 
 def DEBUG_OUT(buf):
-      global rrhash, avail
+   global rrhash, avail
 
-      assert len(buf) == CS2_SIZE
-      data = ' '.join(           # put space between every octet
-         map(''.join, zip(*[iter(buf.hex())]*2))
-      )
-      data = '%04x %04x %02x %s' % (
-         int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
-         buf[4],
-         ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4)))
-      )
-      cid = int.from_bytes(buf[2:4])
-      if cid == rrhash:
-         print('UDP -> CAN %s' % data)
-      else:
-         print('CAN -> UDP %s' % data)
-      if avail:
-         print('   %s' % decode(
-               int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])], detail=True
-            )
+   assert len(buf) == CS2_SIZE
+   data = '%04x %04x %02x %s' % (
+      int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
+      buf[4],
+      ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4)))
+   )
+   cid = int.from_bytes(buf[2:4])
+   if cid == rrhash:
+      print('UDP -> CAN', data)
+   else:
+      print('CAN -> UDP', data)
+   if avail:
+      print('  ', decode(
+            int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])], detail=True
          )
+      )
 
 print('UDP <-> CAN packet hub (%s)' % VER)
 try:
@@ -200,7 +197,7 @@ if not wlan.isconnected():
    wlan.connect(SSID, PASS)
 else:
    host = wlan.config('hostname')
-wlan.config(pm=0xA11140)         # disable power management on chip
+wlan.config(pm=wlan.PM_NONE)     # disable power management on chip
 
 while not wlan.isconnected():
    # Fast flash while waiting for wifi connection; boot button restarts.
