@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 15 Mar. 2025
+# last revision 20 Mar. 2025
 
-VER = 'AR155'                    # version ID
+VER = 'AR205'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -264,11 +264,11 @@ async def DEBUG_OUT():
       )
       cid = int.from_bytes(buf[2:4])
       if cid == rrhash:
-         print('TCP -> CAN %s' % data)
+         print('TCP -> CAN', data)
       else:
-         print('CAN -> TCP %s' % data)
+         print('CAN -> TCP', data)
       if avail:
-         print('   %s' % decode(
+         print('   ', decode(
                int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])], detail=True
             )
          )
