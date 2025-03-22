@@ -238,7 +238,7 @@ Then:
 * Select `TCP` as the type if using TCP or `UDP` if using UDP.
 * Fill in `Hostname` with the IP number (or `CS2hub-xxxxxx` if you have DNS).
 * Leave the `:` field following `Hostname` blank, which Rocrail assumes to
-mean 15731 for TCP and 15730/15731 for UDP.
+mean 15731 for TCP and 15731/15730 for UDP.
 * Click `OK` to add.
 
 It should look like this:
