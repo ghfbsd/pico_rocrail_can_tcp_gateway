@@ -6,8 +6,10 @@
 
 This is a low-cost solution to the goal of running a Märklin train set by a
 remote computer/handheld device without needing a CS2/CS3 controller.  This
-device works with the 60116 Gleisbox typically provided with starter train
+device works with the 60116 Gleisbox[^1] typically provided with starter train
 sets (along with the 60657 MS2 controller).
+
+[^1]: Also works with the 60112, 60113, or 60114 Gleisbox.
 
 The hardware and software implement a wireless hub that does two things:
 * takes incoming train control packets over WiFi and sends them to the trains
@@ -60,10 +62,10 @@ the board requires some setting up before it will work with your RPP.
 * If you want to solder jumpers to the CS and INT connections on the
 RB-P-CAN-485, do it now. 
 * Plug the RPP into the RB-P-CAN-485 board.
-* Jumper CS to pin GP17, and INT to pin GP20[^1].
+* Jumper CS to pin GP17, and INT to pin GP20[^2].
 * Plug the USB cable into the RPP and connect it to your computer.
 
-[^1]: The photo shows different jumper pins for a previous code release; be assured the text is correct.
+[^2]: The photo shows different jumper pins for a previous code release; be assured the text is correct.
 
 The Waveshare board does not need any preparation before use.
 
@@ -257,7 +259,7 @@ and then click on the `Interface` tab.  In the `Interface ID` box type
 At this point, you can start running the loco.  Repeat as needed for further
 locos.
 
-Power up the system by plugging in the Märklin power supply to the Gleisbox[^2].
+Power up the system by plugging in the Märklin power supply to the Gleisbox[^3].
 At this point, you should start to see packets flowing from Rocrail and from
 the Gleisbox.  They will resemble this:
 
@@ -270,7 +272,7 @@ CAN -> TCP 0031 4f20 08 4746 e70b 013e 0010
    R PING 18 (4746e70b): Gleisbox 601xx ver 013e
 ```
 
-[^2]: You do not need the MS2 (or CS2/CS3) to operate the system
+[^3]: You do not need the MS2 (or CS2/CS3) to operate the system
 (but you may wish to connect it anyway -- it will act as a slave/repeater to
 your computer controller software).
 If you have the MS2 connected, after initializing it will be in the STOP state
