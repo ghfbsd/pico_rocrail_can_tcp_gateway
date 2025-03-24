@@ -316,24 +316,56 @@ def decode(ID,data,detail=False) -> str:
       mess = resp + ' PING 18 '
       if dlen == 0:
          mess += '(everybody)'
+      elif dlen != 8:
+         mess += '(garbled)'
       else:
-         mess += '(%s): ' % data.hex()[0:8]
-         if data[6:8] == b'\x00\x00':
-            mess += 'Gleis Fmt Processor ver %s' % data[4:6].hex()
-         elif data[6:8] == b'\x00\x10': 
-            mess += 'Gleisbox 601xx ver %s' % data[4:6].hex()
-         elif data[6:8] == b'\x00\x20': 
-            mess += 'Gleisbox 6021 (60128) ver %s' % data[4:6].hex()
-         elif data[6:8] == b'\x00\x30': 
-            mess += 'MS2 60653 etc. ver %s' % data[4:6].hex()
-         elif data[6:8] == b'\x46\xff': 
-            mess += 'Rocrail server ver %s' % data[4:6].hex()
+         mess += '(%s): ' % data[0:4].hex()
+         if data[6] == 0x00:
+            rng = ID >> 16 & 0xFFFF
+            if data[7] == 0x00:
+               if ID & 0xff000000 == 0x42000000:
+                  mess += 'Booster (6017x)'
+               else:
+                  mess += 'Gleis Fmt Processor'
+            elif data[7] == 0x10: 
+               mess += 'Gleisbox 60116'
+            elif data[7] == 0x11: 
+               mess += 'Gleisbox 60117'
+            elif data[7] == 0x20: 
+               mess += 'Gleisbox 6021 (60128)'
+            elif data[7] >= 0x30 and data[7] <= 0x34:
+               mess += 'MS2 60653 etc.'
+            elif data[7] == 0x40: 
+               if rng == 0x5330:
+                  mess += 'LinkS88'
+               elif rng == 0x4342:
+                  mess += 'S88 Gateway'
+               else:
+                  mess += 'S88 (unknown)'
+            elif data[7] == 0x51 and rng == 0x4d43:
+               mess += 'MäCAN bus coupler'
+            elif data[7] == 0x53:
+               if rng == 0x4d43:
+                  mess += 'MäCAN Dx32'
+               else:
+                  mess += 'Cg servo'
+            elif data[7] == 0x54:
+               mess += 'Cg feedback device'
+            else:
+               mess += '(unknown)'
+         elif data[6:8] == b'\x12\x34': 
+            mess += 'MäCAN switch decoder'
+         elif data[6:8] == b'\x46\x81' or data[6:8] == b'\x46\xff': 
+            mess += 'Rocrail server'
+         elif data[6:8] == b'\xee\xee': 
+            mess += 'CS2 software'
          elif data[6:8] == b'\xff\xe0': 
-            mess += 'Wireless device ver %s' % data[4:6].hex()
-         elif data[6:8] == b'\xff\xff': 
-            mess += 'CS2-GUI (Master) ver %s' % data[4:6].hex()
+            mess += 'Wireless device'
+         elif data[6:8] == b'\xff\xf0' or data[6:8] == b'\xff\xff': 
+            mess += 'CS2-GUI (Master)'
          else:
-            mess += '(unknown) ver %s' % data[4:6].hex()
+            mess += '(unknown)'
+         mess += ' ver %d.%d' % (int(data[4]),int(data[5]))
       return mess
 
    if comm == 0x1b:          # CAN BOOT
