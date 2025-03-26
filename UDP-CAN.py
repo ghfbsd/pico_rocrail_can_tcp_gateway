@@ -35,16 +35,16 @@ QSIZE = const(25)                # Size of various I/O queues (overkill)
 LOGP = const(False)              # Abbreviated log for debug
 LOGM = const(False)              # Full log (use with caution - packet loss)
 
-CANBOARD = 'JI'
+_CANBOARD = const('JI')
 
-if CANBOARD == 'JI':
+if _CANBOARD == 'JI':
    # These pin assignments are appropriate for a RB-P-CAN-485 Joy-IT board
    INT_PIN = 20                  # Interrupt pin for CAN board
    SPI_CS = 17
    SPI_SCK = 18
    SPI_MOSI = 19
    SPI_MISO = 16
-elif CANBOARD == 'WS':
+elif _CANBOARD == 'WS':
    # These pin assignments are appropriate for a Waveshare Pico-CAN-B board
    INT_PIN = 21                  # Interrupt pin for CAN board
    SPI_CS = 5
@@ -52,7 +52,7 @@ elif CANBOARD == 'WS':
    SPI_MOSI = 7
    SPI_MISO = 4
 else:
-   raise RuntimeError('***%s is an unsupported CAN board***' % CANBOARD)
+   raise RuntimeError('***%s is an unsupported CAN board***' % _CANBOARD)
 
 from micropython import alloc_emergency_exception_buf as AEEB
 AEEB(100)                        # boilerplate for IRQ-level exception reporting
