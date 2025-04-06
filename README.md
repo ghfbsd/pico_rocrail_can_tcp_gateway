@@ -107,12 +107,14 @@ If using the Waveshare board, make sure you configure
 
 ### Download more software
 
-Next, download two utilities used by the program: a pre-release version of
-[asynchronous queue management](https://github.com/peterhinch/micropython-async/tree/master) for MicroPython and a Märklin packet decoder
-(for debug output).  (The queue management routines will eventually be
-incorporated into MicroPython itself -- which will eliminate this step; the
-packet decoder is optional, but you might be curious to see the details of the
-traffic between your train controller and the Märklin Gleisbox.)
+Next, from this repository, download two utilities used by the program:
+queuing routines[^3] and a Märklin packet decoder[^4].
+
+[^3]: The [asynchronous queue management](https://github.com/peterhinch/micropython-async/tree/master) will eventually be incorporated into MicroPython
+itself; not yet, though.
+
+[^4]: The Märklin packet decoder is for debug output.
+It is optional, but you might be curious to see the details of the traffic between your train controller and the Märklin Gleisbox.
 
 In **rshell**, again:
 ```
@@ -259,7 +261,7 @@ and then click on the `Interface` tab.  In the `Interface ID` box type
 At this point, you can start running the loco.  Repeat as needed for further
 locos.
 
-Power up the system by plugging in the Märklin power supply to the Gleisbox[^3].
+Power up the system by plugging in the Märklin power supply to the Gleisbox[^5].
 At this point, you should start to see packets flowing from Rocrail and from
 the Gleisbox.  They will resemble this:
 
@@ -272,7 +274,7 @@ CAN -> TCP 0031 4f20 08 4746 e70b 013e 0010
    R PING 18 (4746e70b): Gleisbox 601xx ver 013e
 ```
 
-[^3]: You do not need the MS2 (or CS2/CS3) to operate the system
+[^5]: You do not need the MS2 (or CS2/CS3) to operate the system
 (but you may wish to connect it anyway -- it will act as a slave/repeater to
 your computer controller software).
 If you have the MS2 connected, after initializing it will be in the STOP state
