@@ -109,6 +109,7 @@ If using the Waveshare board, make sure you configure
 
 Next, from this repository, download two utilities used by the program:
 queuing routines[^3] and a Märklin packet decoder[^4].
+In **rshell**, again:
 
 [^3]: The [asynchronous queue management](https://github.com/peterhinch/micropython-async/tree/master) will eventually be incorporated into MicroPython
 itself; not yet, though.
@@ -116,7 +117,6 @@ itself; not yet, though.
 [^4]: The Märklin packet decoder is for debug output.
 It is optional, but you might be curious to see the details of the traffic between your train controller and the Märklin Gleisbox.
 
-In **rshell**, again:
 ```
 cp marklin.py /pyboard
 cp threadsafe.py /pyboard
