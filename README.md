@@ -317,6 +317,21 @@ CAN bus after the Gleisbox powers up again.  If this turns out to be a problem,
 press the `BOOT SEL` button on the RPP to restart.  Or, cycle the power by
 unplugging it and plugging it back in.
 
+## Utilities
+
+If you want to monitor the CAN traffic between the Gleisbox and your controller
+(an MS1, MS2, a CS1, CS2, or a CS3), download the `CS2-sniff.py` program to
+your RPP and run it while attached via the USB cable.  It will print out a log
+of all of the packets exchanged over the CAN bus.  In *rshell*,
+
+```
+xxx> cp CS2-sniff.py /pyboard
+xxx> repl pyboard
+>>> execfile('CS2-sniff.py')
+```
+will start up the CAN packet sniffer.  It will run until it is
+interrupted with a control-C.
+
 ## Bugs and Wish List
 
 * It would be great to have the hub advertise the train control service so that
@@ -331,3 +346,5 @@ use of it.
 ## Acknowledgements
 
 * Christophe Bobille for the inspiration (see [this post](https://www.locoduino.org/spip.php?article361))
+* @xxup, particularly, and others on the marklin-users.net community forum for
+feedback
