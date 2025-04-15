@@ -5,6 +5,7 @@
 
 # CPU: Raspberry Pi pico W
 # CAN device: RB-P-CAN-RS485 board by Joy-IT (www.joy-it.net)
+#          or Pico-CAN-B board by Waveshare (https://www.waveshare.com)
 
 # Runs with:
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
