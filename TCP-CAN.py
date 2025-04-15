@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 20 Mar. 2025
+# last revision 15 Apr. 2025
 
-VER = 'AR205'                    # version ID
+VER = 'PR155'                    # version ID
 
 SSID = "****"
 PASS = "****"
@@ -143,9 +143,16 @@ class iCAN:                      # interrupt driven CAN message sniffer
 
 from threadsafe import ThreadSafeQueue
 
-CANtoTCP = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
-TCPtoCAN = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
-debugQUE = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
+CtoT, TtoC, DBQ = [], [], []
+ixCT, ixTC, ixDB = 0, 0, 0
+qfCT, qfDB = False, False
+for i in range(QSIZE):
+   CtoT.append(bytearray(CS2_SIZE))
+   TtoC.append(bytearray(CS2_SIZE))
+   DBQ.append(bytearray(CS2_SIZE))
+CANtoTCP = ThreadSafeQueue(CtoT)
+TCPtoCAN = ThreadSafeQueue(TtoC)
+debugQUE = ThreadSafeQueue(DBQ)
 
 TCP_R, TCP_W = None, None
 TCP_RERR, TCP_WERR = False, False
@@ -169,7 +176,7 @@ async def TCP_READER():
    #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
    #    -----------  --  -----------------------
    #       CAN ID    len  data (left justified)
-   global TCP_R, TCP_RERR, rrhash
+   global TCP_R, TCP_RERR, rrhash, ixTC, ixDB
    while True:                   # Wait for connection
       if TCP_R is None:
          await asyncio.sleep_ms(10)
@@ -179,8 +186,14 @@ async def TCP_READER():
          pkt = await TCP_R.readexactly(CS2_SIZE)
          assert len(pkt) == CS2_SIZE
          rrhash = int.from_bytes(pkt[2:4])
-         await TCPtoCAN.put(pkt)
-         await debugQUE.put(pkt)
+         buf = TtoC[ixTC % QSIZE]
+         buf[0:CS2_SIZE] = pkt
+         await TCPtoCAN.put(buf)
+         ixTC += 1
+         buf = DBQ[ixDB % QSIZE]
+         buf[0:CS2_SIZE] = pkt
+         await debugQUE.put(buf)
+         ixDB += 1
       except EOFError:           # Connection lost/client disconnect
          TCP_RERR, TCP_R = True, None
          continue
@@ -191,6 +204,7 @@ async def CAN_READER():
    can.run(CAN_IN)
 
 def CAN_IN(msg, err, buf=bytearray(CS2_SIZE)):
+   global ixCT, ixDB, qfCT, qfDB
    if err:
       stat = can.intf().getStatus()     # Order matters: status first ...
       intr = can.intf().getInterrupts() # ...then interrupt reg
@@ -206,14 +220,24 @@ def CAN_IN(msg, err, buf=bytearray(CS2_SIZE)):
    buf[4] = msg.dlc
    buf[5:14] = 8*b'\x00'
    for i in range(msg.dlc): buf[5 + i] = msg.data[i]
+   pkt = CtoT[ixCT % QSIZE]
+   pkt[0:CS2_SIZE] = buf
    try:
-      CANtoTCP.put_sync(buf)     # put_sync because no await used
+      CANtoTCP.put_sync(pkt)     # put_sync because no await used
+      qfCT = False
+      ixCT += 1
    except:
-      print('***CANtoTCP q full')
+      if not qfCT: print('***CANtoTCP q full')
+      qfCT = True
+   pkt = DBQ[ixDB % QSIZE]
+   pkt[0:CS2_SIZE] = buf
    try:
-      debugQUE.put_sync(buf)     # pub_sync because no await used
+      debugQUE.put_sync(pkt)     # put_sync because no await used
+      qfDB = False
+      ixDB += 1
    except:
-      print('***debug q full')
+      if not qfDB: print('***debug q full')
+      qfDB = True
 
 async def TCP_WRITER():
    global TCP_W, TCP_WERR
