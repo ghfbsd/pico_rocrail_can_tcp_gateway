@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 15 Apr. 2025
+# last revision 17 Apr. 2025
 
-VER = 'PR155'                    # version ID
+_VER = const('PR175')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -23,7 +23,9 @@ CS2_SIZE = const(13)             # Fixed by protocol definition
 
 QSIZE = const(25)                # Size of various I/O queues (overkill)
 
-_CANBOARD = const('JI')
+NODE_ID = 1                      # "S88" node ID
+
+_CANBOARD = const('WS')
 
 if _CANBOARD == 'JI':
    # These pin assignments are appropriate for a RB-P-CAN-485 Joy-IT board
@@ -32,6 +34,14 @@ if _CANBOARD == 'JI':
    SPI_SCK = 18
    SPI_MOSI = 19
    SPI_MISO = 16
+   FBP = dict(                   # Feedback pins
+      #   +---- channel number
+      #   |  +- GPIO pin number
+      #   |  |
+      #   v  v
+      c0=(0, 0), c1=(1, 1), c2=(2, 8), c3=(3, 9),
+      c4=(4,10), c5=(5,11), c6=(6,14), c7=(7,15)
+   )
 elif _CANBOARD == 'WS':
    # These pin assignments are appropriate for a Waveshare Pico-CAN-B board
    INT_PIN = 21                  # Interrupt pin for CAN board
@@ -39,6 +49,14 @@ elif _CANBOARD == 'WS':
    SPI_SCK = 6
    SPI_MOSI = 7
    SPI_MISO = 4
+   FBP = dict(                   # Feedback pins
+      #   +---- channel number
+      #   |  +- GPIO pin number
+      #   |  |
+      #   v  v
+      c0=(0, 0), c1=(1, 1), c2=(2, 2), c3=(3, 3),
+      c4=(4,10), c5=(5,11), c6=(6,12), c7=(7,13)
+   )
 else:
    raise RuntimeError('***%s is an unsupported CAN board***' % _CANBOARD)
 
@@ -312,9 +330,67 @@ async def HEARTBEAT():
       pico_led.off()
       await asyncio.sleep(1)
 
+async def FEEDBACK():
+   # Feedback via subset of pins
+   fbpin = 8*[None]
+   chn, state = bytearray(8), bytearray(8)
+   myhash = 0x5338
+
+   flag = asyncio.ThreadSafeFlag()
+   def intr(pin):
+      chn[pin] ^= 1
+      flag.set()
+
+   pool, n = [], 0
+   for pid in FBP:
+      ch, pin = FBP[pid]
+      chn[ch], state[ch] = 1, 1
+      fbpin[ch] = Pin(pin, Pin.IN, Pin.PULL_UP)
+      fbpin[ch].irq(             # this defines the interrupt handler
+         trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING,
+         handler=lambda p, id=ch: intr(id),
+         hard=True)
+      pool.append(bytearray(CS2_SIZE))
+      n += 1
+
+   print('Feedback: %d channels, "S88" module %d.' % (n,NODE_ID))
+   asyncio.sleep(0)
+   while True:
+      await flag.wait()
+      chg = 0
+      for i in range(n):
+         val = fbpin[i].value()  # Get present state to debounce
+         if state[i] != chn[i] or state[i] != val:
+            chg |= 1 << i
+            chn[i] = val         # Make sure internal state agrees
+      if chg:                    # Respond with current status
+         for i in range(n):
+            if chg & (1 << i):
+               pkt = pool[i]
+               pkt[0] = 0x11 >> 7 & 0xff
+               pkt[1] = 0x11 << 1 & 0xff | 0x01   # set R flag
+               pkt[2] = myhash >> 8 & 0xff
+               pkt[3] = myhash & 0xff
+               pkt[4] = 8
+               pkt[5:7] = bytes((0,NODE_ID))
+               pkt[7:9] = bytes((0,i))
+               pkt[9], pkt[10] = state[i], chn[i]
+               pkt[11:13] = 2*b'\x00'
+               try:
+                  CANtoTCP.put_sync(pkt)
+               except:
+                  print('***CAN q full')
+               try:
+                  debugQUE.put_sync(pkt)
+               except:
+                  print('***log q full')
+               state[i] = chn[i]
+            if state[i] != fbpin[i].value():
+               print('***pin %d state mismatch' % i)
+
 from asyncio import Loop
 
-print('TCP <-> CAN packet hub (%s)' % VER)
+print('TCP <-> CAN packet hub (%s)' % _VER)
 try:
    from marklin import decode    # Marklin CS2 CAN packet decoder
    avail = True
@@ -352,5 +428,6 @@ tcpw = asyncio.create_task(TCP_WRITER())
 canw = asyncio.create_task(CAN_WRITER())
 dbug = asyncio.create_task(DEBUG_OUT())
 beat = asyncio.create_task(HEARTBEAT())
+feed = asyncio.create_task(FEEDBACK())
 
 Loop.run_until_complete(asyncio.start_server(TCP_SERVER,ip,CS2_PORT))
