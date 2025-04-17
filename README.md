@@ -299,6 +299,29 @@ source to run the board and the RPP.  It does not matter which USB connection
 you use: either of the connectors on the RPP or the CAN board will
 run them both.  Only the RPP's USB connection will talk to **rshell** though.
 
+## Additional features
+
+The hub also provides a small number of feedback pathways to the train
+controller software like Rocrail.  It is equivalent to a Märklin S88
+connected to a CS2/CS3 controller (but with only 8 feedback paths).
+Each feedback path is activated by shorting one of the RPP pins to ground.
+The simulated S88 node ID is 1, and contacts 0-7 are available:
+
+| contact | Joy-IT board    | Waveshare board |
+| ------- | --------------- | --------------- |
+|    0    | GPIO 0  = pin 1 | GPIO 0 = pin 1  |
+|    1    | GPIO 1  = pin 2 | GPIO 1 = pin 2  |
+|    2    | GPIO 8  = pin 11| GPIO 2 = pin 4  |
+|    3    | GPIO 9  = pin 12| GPIO 3 = pin 5  |
+|    4    | GPIO 10 = pin 14| GPIO 10 = pin 14|
+|    5    | GPIO 11 = pin 15| GPIO 11 = pin 15|
+|    6    | GPIO 14 = pin 19| GPIO 12 = pin 16|
+|    7    | GPIO 15 = pin 20| GPIO 13 = pin 17|
+
+Connect your feedback devices using breadboard jumper wires: one to one of
+the RPP ground pins (pin 3, 8, 13 or 18) and either a male or female
+jumper wire to the appropriate pin for the contact channel.
+
 ## Operational notes
 
 There are two board monitor functions provided via the LED on the RPP.
