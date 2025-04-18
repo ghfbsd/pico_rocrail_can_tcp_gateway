@@ -326,15 +326,16 @@ Follow these steps to connect your feedback paths to Rocrail.
 In Rocrail's `Trackplan -> Edit` panel, select the type of and place for your
 feedback sensor.
 Then click on the newly-created sensor.  This opens up a panel with its
-properties.  Under the "General" tab, Change the ID to your preference.
+properties.  Under the `General` tab, Change the ID to your preference.
 
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/snsr-1.jpg?raw=true)
 
-Under the "Interface" tab, choose the Wifi interface (here "RPIW-CAN" like
-before).  Then set the node ID and the channel address.  The node ID will
+Under the `Interface` tab, choose the WiFi interface for the `Interface ID`
+(here `RPIW-CAN` like before).
+Then set the `Node ID` and the channel's `Address`.  The node ID will
 always be 1, and the address will be any of 0-7 depending on the pin on the
 RPP that your feedback device connects to (refer to the table above).
-Then click OK and your feedback path will be configured.
+Then click `OK` and your feedback path will be configured.
 
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/snsr-2.jpg?raw=true)
 
