@@ -302,7 +302,7 @@ run them both.  Only the RPP's USB connection will talk to **rshell** though.
 ## Additional features
 
 The hub also provides a small number of feedback pathways to the train
-controller software like Rocrail.  It is equivalent to a Märklin S88
+controller software like Rocrail.  It is equivalent to a Märklin S88+L88
 connected to a CS2/CS3 controller (but with only 8 feedback paths).
 Each feedback path is activated by shorting one of the RPP pins to ground.
 The simulated S88 node ID is 1, and contacts 0-7 are available:
@@ -321,6 +321,11 @@ The simulated S88 node ID is 1, and contacts 0-7 are available:
 Connect your feedback devices using breadboard jumper wires: one to one of
 the RPP ground pins (pin 3, 8, 13 or 18) and either a male or female
 jumper wire to the appropriate pin for the contact channel.
+
+**The feedback voltage levels should be at logic levels around 5V.
+Track voltages (~18V) will damage or destroy the RPP and CAN board.
+Be sure that you understand how your feedback devices operate before using
+this feature.**
 
 Follow these steps to connect your feedback paths to Rocrail.
 In Rocrail's `Trackplan -> Edit` panel, select the type of and place for your
@@ -360,7 +365,7 @@ unplugging it and plugging it back in.
 ## Utilities
 
 If you want to monitor the CAN traffic between the Gleisbox and your controller
-(an MS1, MS2, a CS1, CS2, or a CS3), download the `CS2-sniff.py` program to
+(an MS1, MS2, a CS2, or a CS3), download the `CS2-sniff.py` program to
 your RPP and run it while attached via the USB cable.  It will print out a log
 of all of the packets exchanged over the CAN bus.  In *rshell*,
 
