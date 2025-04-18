@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 17 Apr. 2025
+# last revision 18 Apr. 2025
 
-_VER = const('PR175')            # version ID
+_VER = const('PR185')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -23,7 +23,7 @@ CS2_SIZE = const(13)             # Fixed by protocol definition
 
 QSIZE = const(25)                # Size of various I/O queues (overkill)
 
-NODE_ID = 1                      # "S88" node ID
+NODE_ID = const(1)               # "S88" node ID
 
 _CANBOARD = const('WS')
 
@@ -162,16 +162,16 @@ class iCAN:                      # interrupt driven CAN message sniffer
 
 from threadsafe import ThreadSafeQueue
 
-CtoT, TtoC, DBQ = [], [], []
 ixCT, ixTC, ixDB = 0, 0, 0
 qfCT, qfDB = False, False
+CtoT, TtoC, DBQ = [], [], []
 for i in range(QSIZE):
    CtoT.append(bytearray(CS2_SIZE))
    TtoC.append(bytearray(CS2_SIZE))
    DBQ.append(bytearray(CS2_SIZE))
-CANtoTCP = ThreadSafeQueue(CtoT)
-TCPtoCAN = ThreadSafeQueue(TtoC)
-debugQUE = ThreadSafeQueue(DBQ)
+CANtoTCP = ThreadSafeQueue(QSIZE)
+TCPtoCAN = ThreadSafeQueue(QSIZE)
+debugQUE = ThreadSafeQueue(QSIZE)
 
 TCP_R, TCP_W = None, None
 TCP_RERR, TCP_WERR = False, False
@@ -332,16 +332,16 @@ async def HEARTBEAT():
 
 async def FEEDBACK():
    # Feedback via subset of pins
-   fbpin = 8*[None]
+   global qfCT, qfDB
    chn, state = bytearray(8), bytearray(8)
    myhash = 0x5338
 
    flag = asyncio.ThreadSafeFlag()
-   def intr(pin):
-      chn[pin] ^= 1
-      flag.set()
+   def intr(pin):                # Interrupt handler
+      chn[pin] ^= 1              # Toggle state
+      flag.set()                 # Signal waiting task
 
-   pool, n = [], 0
+   pool, fbpin, n = 8*[None], 8*[None], 0
    for pid in FBP:
       ch, pin = FBP[pid]
       chn[ch], state[ch] = 1, 1
@@ -350,7 +350,19 @@ async def FEEDBACK():
          trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING,
          handler=lambda p, id=ch: intr(id),
          hard=True)
-      pool.append(bytearray(CS2_SIZE))
+      val = fbpin[ch].value()    # Get present state to initialize
+      chn[ch], state[ch] = val, val
+      pool[ch] = bytearray(CS2_SIZE)
+      pkt = pool[ch]             # Allocate buffer and format static CS2 packet
+      pkt[0] = 0x11 >> 7 & 0xff
+      pkt[1] = 0x11 << 1 & 0xff | 0x01   # set R flag
+      pkt[2] = myhash >> 8 & 0xff
+      pkt[3] = myhash & 0xff
+      pkt[4] = 8
+      pkt[5:7] = bytes((0,NODE_ID))
+      pkt[7:9] = bytes((0,ch))
+      pkt[9], pkt[10] = state[ch], chn[ch]
+      pkt[11:13] = 2*b'\x00'
       n += 1
 
    print('Feedback: %d channels, "S88" module %d.' % (n,NODE_ID))
@@ -367,23 +379,19 @@ async def FEEDBACK():
          for i in range(n):
             if chg & (1 << i):
                pkt = pool[i]
-               pkt[0] = 0x11 >> 7 & 0xff
-               pkt[1] = 0x11 << 1 & 0xff | 0x01   # set R flag
-               pkt[2] = myhash >> 8 & 0xff
-               pkt[3] = myhash & 0xff
-               pkt[4] = 8
-               pkt[5:7] = bytes((0,NODE_ID))
-               pkt[7:9] = bytes((0,i))
                pkt[9], pkt[10] = state[i], chn[i]
-               pkt[11:13] = 2*b'\x00'
                try:
                   CANtoTCP.put_sync(pkt)
+                  qfCT = False
                except:
-                  print('***CAN q full')
+                  if not qfCT: print('***CAN q full')
+                  qfCT = True
                try:
                   debugQUE.put_sync(pkt)
+                  qfDB = False
                except:
-                  print('***log q full')
+                  if not qfDB: print('***log q full')
+                  qfDB = True
                state[i] = chn[i]
             if state[i] != fbpin[i].value():
                print('***pin %d state mismatch' % i)
@@ -430,4 +438,7 @@ dbug = asyncio.create_task(DEBUG_OUT())
 beat = asyncio.create_task(HEARTBEAT())
 feed = asyncio.create_task(FEEDBACK())
 
-Loop.run_until_complete(asyncio.start_server(TCP_SERVER,ip,CS2_PORT))
+try:
+   Loop.run_until_complete(asyncio.start_server(TCP_SERVER,ip,CS2_PORT))
+except KeyboardInterrupt:
+   can.stop()
