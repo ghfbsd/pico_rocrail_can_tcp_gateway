@@ -1,24 +1,18 @@
-# UDP - CAN bus hub (without asyncio)
+# UDP - CAN bus hub
 
 # Copyright (c) 2025 George Helffrich
 # Released under the MIT License (MIT) - see LICENSE file
 
 # CPU: Raspberry Pi pico W
 # CAN device: RB-P-CAN-RS485 board by Joy-IT (www.joy-it.net)
-#          or Pico-CAN-B board by Waveshare (https://www.waveshare.com)
 
 # Runs with:
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
-# 15 Mar. 2025
-# last revision 20 Mar. 2025
+# 09 Mar. 2025
+# last revision 18 Apr. 2025
 
-import network
-import usocket as socket
-import sys
-from time import sleep, sleep_ms, ticks_diff, ticks_us
-
-VER = 'AR205'                    # version ID
+_VER = const('PR185')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -27,15 +21,11 @@ CS2_SPORT = const(15730)         # Marklin diktat
 CS2_RPORT = const(15731)         # Marklin diktat
 CS2_SIZE = const(13)             # Fixed by protocol definition
 
-CAN_MERR = const(5)              # CAN error processing
-CAN_MCNT = const(500)            # CAN error processing
-
 QSIZE = const(25)                # Size of various I/O queues (overkill)
 
-LOGP = const(False)              # Abbreviated log for debug
-LOGM = const(False)              # Full log (use with caution - packet loss)
+NODE_ID = const(1)               # "S88" node ID
 
-_CANBOARD = const('JI')
+_CANBOARD = const('WS')
 
 if _CANBOARD == 'JI':
    # These pin assignments are appropriate for a RB-P-CAN-485 Joy-IT board
@@ -44,6 +34,14 @@ if _CANBOARD == 'JI':
    SPI_SCK = 18
    SPI_MOSI = 19
    SPI_MISO = 16
+   FBP = dict(                   # Feedback pins
+      #   +---- channel number
+      #   |  +- GPIO pin number
+      #   |  |
+      #   v  v
+      c0=(0, 0), c1=(1, 1), c2=(2, 8), c3=(3, 9),
+      c4=(4,10), c5=(5,11), c6=(6,14), c7=(7,15)
+   )
 elif _CANBOARD == 'WS':
    # These pin assignments are appropriate for a Waveshare Pico-CAN-B board
    INT_PIN = 21                  # Interrupt pin for CAN board
@@ -51,8 +49,22 @@ elif _CANBOARD == 'WS':
    SPI_SCK = 6
    SPI_MOSI = 7
    SPI_MISO = 4
+   FBP = dict(                   # Feedback pins
+      #   +---- channel number
+      #   |  +- GPIO pin number
+      #   |  |
+      #   v  v
+      c0=(0, 0), c1=(1, 1), c2=(2, 2), c3=(3, 3),
+      c4=(4,10), c5=(5,11), c6=(6,12), c7=(7,13)
+   )
 else:
    raise RuntimeError('***%s is an unsupported CAN board***' % _CANBOARD)
+
+import uasyncio as asyncio
+import network
+import usocket as socket
+import sys
+from time import sleep
 
 from micropython import alloc_emergency_exception_buf as AEEB
 AEEB(100)                        # boilerplate for IRQ-level exception reporting
@@ -60,7 +72,7 @@ AEEB(100)                        # boilerplate for IRQ-level exception reporting
 from machine import Pin
 pico_led = Pin("LED", Pin.OUT)
 
-class iCAN:                      # interrupt driven CAN controller
+class iCAN:                      # interrupt driven CAN message sniffer
    from canbus import Can, CanError
    from canbus.internal import CAN_SPEED
    from machine import Pin, SPI
@@ -70,16 +82,17 @@ class iCAN:                      # interrupt driven CAN controller
    )
 
    def __init__(self, intr=None):
+      from machine import Pin
       from canbus import Can, CanError
       from canbus.internal import CAN_SPEED
-      from machine import Pin
+
       if intr is None:
          raise RuntimeError('Need to provide CAN interrupt pin')
-      self.flag = False
+      self.flag = asyncio.ThreadSafeFlag()
       self.pin = Pin(intr, Pin.IN, Pin.PULL_UP)
       self.pin.irq(              # this defines the interrupt handler (lambda)
          trigger=Pin.IRQ_FALLING,
-         handler=self.set_flag,
+         handler=lambda pin: self.flag.set(),
          hard=True)
       self.can = Can(spics=SPI_CS) # CS pin for hardware SPI 0
       # Initialize the CAN interface.  Reference says 250 kbps speed.
@@ -88,45 +101,44 @@ class iCAN:                      # interrupt driven CAN controller
          raise RuntimeError('Error initializing CAN bus')
       print("CAN initialized successfully, waiting for traffic.")
 
-   def set_flag(self,pin):
-      self.flag = True
-
    def intf(self):               # hardware interface level access if needed
       return self.can
 
-   def intr(self):
-      from canbus import CanError
-      if not self.flag:          # interrupt?
-         return None
+   def run(self, proc):
+      # Method never returns; calls proc upon every interrupt.
+      # Usage:
+      #    proc(msg, err) 
+      # with
+      #    msg - Can message
+      #    err - True if read error; False if OK
+      # no return value
 
-      iflg = self.can.getInterrupts()
-      if iflg & 0x03 == 0:       # ignore interrupts except for reading
-         self.flag = False
+      task = asyncio.create_task(self.intr(proc))
+      Loop.run_until_complete(task)
+
+   async def intr(self, proc):
+      # Handle CAN card interrupt.
+      # Response to any interrupt is implemented via a callback method
+      # rather than as a generator (using e.g. async for x in iCan(): ...)
+      # because the interrupt response appears to be faster.  This is
+      # due to the checkReceive() loop in the handler itself.
+
+      from canbus import CanError
+
+      await asyncio.sleep(0)
+      while True:
+         await self.flag.wait()
+         intr = self.can.getInterrupts()
+         if intr & 0x03 == 0:
+            # ignore interrupts except for reading
+            self.can.clearInterrupts()
+            continue
+         while self.can.checkReceive():
+            # CAN error code and message
+            error, msg = self.can.recv()
+            proc(msg, error != CanError.ERROR_OK)
+            await asyncio.sleep(0)
          self.can.clearInterrupts()
-         return None
-
-      if self.can.checkReceive():
-         # CAN error code and message
-         error, msg = self.can.recv()
-         return (msg, error != CanError.ERROR_OK)
-
-      self.flag = False
-      self.can.clearInterrupts()
-      return None
-
-   def cont(self):               # check for more queued I/O after interrupt
-      from canbus import CanError
-      if not self.flag:
-         raise RuntimeError('Interrupt not pending on CAN bus')
-         
-      if self.can.checkReceive():
-         # CAN error code and message
-         error, msg = self.can.recv()
-         return (msg, error != CanError.ERROR_OK)
-
-      self.flag = False
-      self.can.clearInterrupts()
-      return None
 
    def send(self, ID=None, data=None, EFF=False, RTR=False):
       # Send a CAN message.
@@ -151,39 +163,275 @@ class iCAN:                      # interrupt driven CAN controller
 
 from threadsafe import ThreadSafeQueue
 
-CANtoUDP = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
-UDPtoCAN = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
-debugQUE = ThreadSafeQueue(QSIZE*[bytearray(CS2_SIZE)])
+qfCU, qfUC, qfDB = False, False, False
+CANtoUDP = ThreadSafeQueue(QSIZE)
+UDPtoCAN = ThreadSafeQueue(QSIZE)
+debugQUE = ThreadSafeQueue(QSIZE)
 
 rrhash = 0
 
-def DEBUG_OUT(buf):
+async def UDP_READER(timeout=0):
+   # packet layout:
+   #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
+   #    -----------  --  -----------------------
+   #       CAN ID    len  data (left justified)
+   import uselect as select
+   global rrhash, ctsin, ctsou, tsbase, qfUC, qfDB
+
+   s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+   s.setblocking(False)
+   s.bind(('0.0.0.0',CS2_RPORT))
+   p = select.poll()
+   p.register(s, select.POLLIN)
+   print('UDP listening, waiting for traffic.')
+   cpkt, npkt = [], 0
+   for n in range(QSIZE): cpkt.append(bytearray(CS2_SIZE))
+
+   while True:                   # Wait for activity on port
+      pkt = cpkt[npkt % QSIZE]
+      n = s.readinto(pkt, CS2_SIZE)
+      if n is not None:
+         assert n == CS2_SIZE
+         mem = memoryview(pkt)
+         rrhash = int.from_bytes(mem[2:4])
+         try:
+            UDPtoCAN.put_sync(pkt)
+            qfUC = False
+         except:
+            if not qfUC: print('***UDPtoCAN q full')
+            qfUC = True
+         try:
+            debugQUE.put_sync(pkt)
+            qfDB = False
+         except:
+            if not qfDB: print('***log q full')
+            qfDB = True
+         npkt += 1
+         continue
+      await asyncio.sleep_ms(timeout)
+
+async def CAN_READER():
+   global can, INT_PIN
+
+   can = iCAN(intr=INT_PIN)
+   can.run(CAN_IN)
+
+cpkt, ccnt = [], 0
+for i in range(QSIZE): cpkt.append(bytearray(CS2_SIZE))
+
+def CAN_IN(msg, err):
+   global ccnt, cpkt, fbis, qfCU, qfDB
+   
+   if err:
+      stat = can.intf().getStatus()     # Order matters: status first ...
+      intr = can.intf().getInterrupts() # ...then interrupt reg
+      errf = can.intf().getErrorFlags()
+      print('   >>>CAN read error<<< stat %02x intr %02x err %02x' %
+         (stat,intr,errf)
+      )
+      return
+
+   buf = cpkt[ccnt % QSIZE]      # process packet
+   buf[0] = msg.can_id >> 24 & 0xff 
+   buf[1] = msg.can_id >> 16 & 0xff 
+   buf[2] = msg.can_id >>  8 & 0xff 
+   buf[3] = msg.can_id       & 0xff
+   buf[4] = msg.dlc
+   buf[5:14] = 8*b'\x00'
+   for i in range(msg.dlc): buf[5 + i] = msg.data[i]
+
+   try:
+      CANtoUDP.put_sync(buf)
+      qfCU = False
+   except:
+      if not qfCU: print('***CANtoUDP q full')
+      qfCU = True
+   try:
+      debugQUE.put_sync(buf)
+      qfDB = False
+   except:
+      if qfDB: print('***log q full')
+      qfDB = True
+
+   cmd = msg.can_id >> 17 & 0xff
+   rsp = msg.can_id & 0x00010000
+   sub = int(buf[9]) if msg.dlc > 4 else -1
+#  if cmd == 0x00 and sub == 0x00:
+#     ready = False              # SYSTEM STOP means no more data
+#  Disable state initialization until S88 channel<->bit map understood better
+#  if cmd == 0x00 and sub == 0x01 and rsp:
+#     try:
+#        CANtoUDP.put_sync(fbis) # SYSTEM GO means start delivering data
+#        qfCU = False
+#     except:
+#        if not qfCU: print('***CANtoUDP q full')
+#        qfCU = True
+#     try:
+#        debugQUE.put_sync(fbis)
+#        qfDB = False
+#     except:
+#        if not qfDB: print('***log q full')
+#        qfDB = True
+   ccnt += 1
+
+async def UDP_WRITER():
+                                 # set up for UDP use
+   s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+   s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+   s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+   s.bind(('0.0.0.0',0))         # assumed to be only one interface
+
+   while True:
+      async for pkt in CANtoUDP:
+         assert len(pkt) == CS2_SIZE
+         s.sendto(pkt, ('255.255.255.255',CS2_SPORT))
+
+async def CAN_WRITER(MERR=5, MCNT=500):
+   global can
+   async for pkt in UDPtoCAN:
+      assert len(pkt) == CS2_SIZE
+      cnt = 0
+      while can.send(
+            ID=int.from_bytes(pkt[0:4]),
+            data=pkt[5:5+int(pkt[4])],
+            EFF=True
+      ):
+         cnt += 1
+         errf = can.intf().getErrorFlags() # Error Flag register
+         if cnt <= MERR:
+            print('   >>>CAN write error<<< (err %02x)%s' % 
+               (errf, ' - quelling further reports' if cnt >= MERR else '')
+            )
+         if errf & 0x30:         # TXBO/Bus-Off or TXEP/TX-Passive
+            can.intf().clearErrorFlags(MERR=True)
+         await asyncio.sleep_ms(10)
+         if cnt > MCNT:          # Abandon packet after this many tries
+            break
+
+async def DEBUG_OUT():
    global rrhash, avail
 
-   assert len(buf) == CS2_SIZE
-   data = '%04x %04x %02x %s' % (
-      int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
-      buf[4],
-      ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4)))
-   )
-   cid = int.from_bytes(buf[2:4])
-   if cid == rrhash:
-      print('UDP -> CAN', data)
-   else:
-      print('CAN -> UDP', data)
-   if avail:
-      print('  ', decode(
-            int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])], detail=True
-         )
+   async for buf in debugQUE:
+      assert len(buf) == CS2_SIZE
+      data = ' '.join(           # put space between every octet
+         map(''.join, zip(*[iter(buf.hex())]*2))
       )
+      cid = int.from_bytes(buf[2:4])
+      if cid == rrhash:
+         print('UDP -> CAN %s' % data)
+      else:
+         print('CAN -> UDP %s' % data)
+      if avail:
+         print('   %s' % decode(
+               int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])], detail=True
+            )
+         )
+      if UDPtoCAN.qsize() > 0 and UDPtoCAN.qsize() % 5 == 0:
+         print('UDPtoCAN queue congestion: %d waiting' % UDPtoCAN.qsize())
+      if CANtoUDP.qsize() > 0 and CANtoUDP.qsize() % 5 == 0:
+         print('CANtoUDP queue congestion: %d waiting' % CANtoUDP.qsize())
 
-print('UDP <-> CAN packet hub (%s)' % VER)
+async def HEARTBEAT():
+   # Slow LED flash heartbeat while running; boot button restarts.
+   global pico_led
+
+   while True:
+      if rp2.bootsel_button() == 1: sys.exit()
+      pico_led.on()
+      await asyncio.sleep(1)
+      pico_led.off()
+      await asyncio.sleep(1)
+
+fbis = bytearray(CS2_SIZE)       # Feedback initial state packet
+
+async def FEEDBACK():
+   # Feedback via subset of pins
+   global fbis, UID, qfCU, qfDB
+   chn, state = bytearray(8), bytearray(8)
+   myhash = 0x5338
+
+   flag = asyncio.ThreadSafeFlag()
+   def intr(pin):                # Interrupt handler
+      chn[pin] ^= 1              # Toggle state
+      flag.set()                 # Signal waiting task
+
+   pool, fbpin, n = 8*[None], 8*[None], 0
+   for pid in FBP:
+      ch, pin = FBP[pid]
+      fbpin[ch] = Pin(pin, Pin.IN, Pin.PULL_UP)
+      fbpin[ch].irq(             # this defines the interrupt handler
+         trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING,
+         handler=lambda p, id=ch: intr(id),
+         hard=True)
+      val = fbpin[ch].value()    # Get present state to initialize
+      chn[ch], state[ch] = val, val
+      pool[ch] = bytearray(CS2_SIZE)
+      pkt = pool[ch]             # Allocate buffer and format static CS2 packet
+      pkt[0] = 0x11 >> 7 & 0xff
+      pkt[1] = 0x11 << 1 & 0xff | 0x01   # set R flag
+      pkt[2] = myhash >> 8 & 0xff
+      pkt[3] = myhash & 0xff
+      pkt[4] = 8
+      pkt[5:7] = bytes((0,NODE_ID))
+      pkt[7:9] = bytes((0,ch))
+      pkt[9], pkt[10] = state[ch], chn[ch]
+      pkt[11:13] = 2*b'\x00'
+      n += 1
+
+   val = 0
+   for i in range(8): val |= state[i] << (7-i)
+   fbis[0] = 0x10 >> 7 & 0xff    # Build initial state packet
+   fbis[1] = 0x10 << 1 & 0xff | 0x01   # set R flag
+   fbis[2] = myhash >> 8 & 0xff
+   fbis[3] = myhash & 0xff
+   fbis[4] = 7
+   fbis[5:9] = UID
+   fbis[9] = NODE_ID
+   fbis[10], fbis[11] = val, 0
+   fbis[12] = 0                  # This will be fired off after a SYSTEM GO cmd
+
+   print('Feedback: %d channels, "S88" module %d.' % (n,NODE_ID))
+   asyncio.sleep(0)
+   while True:
+      await flag.wait()
+      chg = 0
+      for i in range(n):
+         val = fbpin[i].value()  # Get present state to debounce
+         if state[i] != chn[i] or state[i] != val:
+            chg |= 1 << i
+            chn[i] = val         # Make sure internal state agrees
+      if chg:                    # Respond with current status if any change
+         val = 0
+         for i in range(n):
+            if chg & (1 << i):   # This channel changed
+               pkt = pool[i]     # Get channel's packet and update
+               pkt[9], pkt[10] = state[i], chn[i]
+               try:
+                  CANtoUDP.put_sync(pkt)
+                  qfCU = False
+               except:
+                  if not qfCU: print('***CANtoUDP q full')
+                  qfCU = True
+               try:
+                  debugQUE.put_sync(pkt)
+                  qfDB = False
+               except:
+                  if not qfDB: print('***log q full')
+                  qfDB = True
+               state[i] = chn[i]
+               val |= chn[i] << (7-i)
+            if state[i] != fbpin[i].value():
+               print('***pin %d state mismatch' % i)
+         fbis[10] = val          # Maintain state in initial state packet
+
+from asyncio import Loop
+
+print('UDP <-> CAN packet hub (%s)' % _VER)
 try:
    from marklin import decode    # Marklin CS2 CAN packet decoder
-   avail = LOGM                  # Conditionally use it
+   avail = True
 except:
    avail = False                 # don't use it if not available
-if not avail:
    print('No Märklin packet decoding, only logging raw data.')
 
 #Connect to WLAN; power management on chip has to be turned off in order to not
@@ -198,6 +446,8 @@ if not wlan.isconnected():
 else:
    host = wlan.config('hostname')
 wlan.config(pm=wlan.PM_NONE)     # disable power management on chip
+UID = wlan.config('mac')[2:6]    # UID is low 4 bytes of MAC address
+#UID = bytes((0,0,0,NODE_ID))     # UID is NODE_ID
 
 while not wlan.isconnected():
    # Fast flash while waiting for wifi connection; boot button restarts.
@@ -208,164 +458,19 @@ while not wlan.isconnected():
    pico_led.off()
    sleep(0.25)
 
+pico_led.on()
 ip = wlan.ifconfig()[0]
 print('Available at {} as {}.'.format(ip,host))
 
-                                  # set up read socket for UDP use
-sckr = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sckr.setblocking(False)
-sckr.bind(('0.0.0.0',CS2_RPORT))
-                                  # set up write socket for UDP use
-sckw = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sckw.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-sckw.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-sckw.bind(('0.0.0.0',0))          # assumed to be only one interface
+canr = asyncio.create_task(CAN_READER())
+udpr = asyncio.create_task(UDP_READER())
+udpw = asyncio.create_task(UDP_WRITER())
+canw = asyncio.create_task(CAN_WRITER())
+dbug = asyncio.create_task(DEBUG_OUT())
+beat = asyncio.create_task(HEARTBEAT())
+feed = asyncio.create_task(FEEDBACK())
 
-print('UDP listening, waiting for traffic.')
-
-cti, ctb = 0, 0
-cpkt, cbuf = QSIZE*[bytearray(CS2_SIZE)], QSIZE*[bytearray(CS2_SIZE)]
-
-can = iCAN(intr=INT_PIN)
-
-t0 = ticks_us()
-
-while True:
-   # packet layout:
-   #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
-   #    -----------  --  -----------------------
-   #       CAN ID    len  data (left justified)
-
-   pkt = cpkt[cti % QSIZE]
-   n = sckr.readinto(pkt, CS2_SIZE)
-   if n is not None:             # First task: check for incoming packets
-      assert n == CS2_SIZE
-      mem = memoryview(pkt)
-      rrhash = int.from_bytes(mem[2:4])
-      debugQUE.put_sync(pkt)     # put_sync because no await used
-
-      if LOGP:
-         comm = int.from_bytes(mem[0:2]) >> 1 & 0xff
-         sub = int(pkt[9])
-         desc = '???'
-         if comm == 0x04: desc = 'LSP'
-         if comm == 0x05: desc = 'LDI'
-         if comm == 0x06: desc = 'LFU'
-         if comm == 0x0B: desc = 'ACC'
-         if comm == 0x18: desc = 'PNG'
-         if comm == 0x00 and sub == 0: desc = 'STP'
-         if comm == 0x00 and sub == 1: desc = 'SGO'
-         if comm == 0x00 and sub == 2: desc = 'SHL'
-         if comm == 0x00 and sub == 32: desc = 'CLK'
-         dtus = ticks_diff(ticks_us(),t0)
-         print('%4d.%06d < %s %04x %04x %02x %s' % (
-            dtus//1000000, dtus%1000000,
-            desc,
-            int.from_bytes(mem[0:2]), int.from_bytes(mem[2:4]),
-            pkt[4],
-            ' '.join(map(''.join, zip(*[iter(mem[5:].hex())]*4)))
-         ))
-
-      cti += 1
-      if can.send(               # Try immediate send of packet
-            ID=int.from_bytes(pkt[0:4]),
-            data=pkt[5:5+int(pkt[4])],
-            EFF=True
-      ):
-         UDPtoCAN.put_sync(pkt)  # Failed? queue it
-      continue
-
-   any, tst = False, can.intr()
-   while tst is not None:        # Second task: check for incoming CAN msgs
-      msg, err = tst
-      if err:
-         stat = can.intf().getStatus()     # Order matters: status first ...
-         intr = can.intf().getInterrupts() # ...then interrupt reg
-         errf = can.intf().getErrorFlags()
-         print('   >>>CAN read error<<< stat %02x intr %02x err %02x' %
-            (stat,intr,errf)
-         )
-      else:
-         buf = cbuf[ctb % QSIZE]
-         buf[0] = msg.can_id >> 24 & 0xff 
-         buf[1] = msg.can_id >> 16 & 0xff 
-         buf[2] = msg.can_id >>  8 & 0xff 
-         buf[3] = msg.can_id       & 0xff
-         buf[4] = msg.dlc
-         buf[5:14] = 8*b'\x00'
-         for i in range(msg.dlc): buf[5 + i] = msg.data[i]
-
-         CANtoUDP.put_sync(buf)  # put_sync because no await used
-         debugQUE.put_sync(buf)  # put_sync because no await used
-
-         if LOGP:                # partial logging
-            comm = msg.can_id >> 17 & 0xff
-            sub = int(buf[9])
-            desc = '???'
-            if comm == 0x04: desc = 'LSP'
-            if comm == 0x05: desc = 'LDI'
-            if comm == 0x06: desc = 'LFU'
-            if comm == 0x0B: desc = 'ACC'
-            if comm == 0x18: desc = 'PNG'
-            if comm == 0x00 and sub == 0: desc = 'STP'
-            if comm == 0x00 and sub == 1: desc = 'SGO'
-            if comm == 0x00 and sub == 2: desc = 'SHL'
-            if comm == 0x00 and sub == 32: desc = 'CLK'
-            dtus = ticks_diff(ticks_us(),t0)
-            print('%4d.%06d > %s %04x %04x %02x %s' % (
-               dtus//1000000, dtus%1000000,
-               desc,
-               int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
-               buf[4],
-               ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4)))
-            ))
-
-         any = True
-         ctb += 1
-      tst = can.cont()
-   if any: continue
-
-   if UDPtoCAN.qsize() > 0:      # Third task: Put out a packet on the CAN bus
-      pkt = UDPtoCAN.get_sync()
-      cnt = 0
-      while can.send(
-            ID=int.from_bytes(pkt[0:4]),
-            data=pkt[5:5+int(pkt[4])],
-            EFF=True
-      ):
-         cnt += 1
-         errf = can.intf().getErrorFlags() # Error Flag register
-         if cnt <= CAN_MERR:
-            print('   >>>CAN write error<<< (err %02x)%s' % 
-               (errf, ' - quelling further reports' if cnt >= CAN_MERR else '')
-            )
-         if errf & 0x30:         # TXBO/Bus-Off or TXEP/TX-Passive
-            can.intf().clearErrorFlags(MERR=True)
-         sleep_ms(10)
-         if cnt > CAN_MCNT:      # Abandon packet after this many tries
-            break
-      continue
-
-   if CANtoUDP.qsize() > 0:      # Fourth task: Put out a packet on Wifi
-      pkt = CANtoUDP.get_sync()
-      sckw.sendto(pkt, ('255.255.255.255',CS2_SPORT))
-      continue
-
-   if debugQUE.qsize() > 0:      # Fifth task: Put out debug info
-      DEBUG_OUT(debugQUE.get_sync())
-      continue
-
-                                 # Housekeeping
-   if UDPtoCAN.qsize() > 0 and UDPtoCAN.qsize() % 5 == 0:
-      print('UDPtoCAN queue congestion: %d waiting' % UDPtoCAN.qsize())
-   if CANtoUDP.qsize() > 0 and CANtoUDP.qsize() % 5 == 0:
-      print('CANtoUDP queue congestion: %d waiting' % CANtoUDP.qsize())
-
-   td = ticks_diff(ticks_us(),t0)
-   if (td//1000) % 2:            # ... heartbeat
-      pico_led.on()
-   else:
-      pico_led.off()
-
-   if rp2.bootsel_button():      # Panic button
-      sys.exit()
+try:
+   Loop.run_until_complete(udpr)
+except KeyboardInterrupt:
+   can.stop()
