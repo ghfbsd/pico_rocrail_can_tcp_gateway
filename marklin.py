@@ -321,9 +321,9 @@ def decode(ID,data,detail=False) -> str:
       else:
          mess += '(%s): ' % data[0:4].hex()
          if data[6] == 0x00:
-            rng = ID >> 16 & 0xFFFF
+            rng = int.from_bytes(data[0:2]) # top halfword of UID
             if data[7] == 0x00:
-               if ID & 0xff000000 == 0x42000000:
+               if rng & 0xff00 == 0x4200:
                   mess += 'Booster (6017x)'
                else:
                   mess += 'Gleis Fmt Processor'
@@ -334,9 +334,9 @@ def decode(ID,data,detail=False) -> str:
             elif data[7] == 0x20: 
                mess += 'Gleisbox 6021 (60128)'
             elif data[7] >= 0x30 and data[7] <= 0x34:
-               mess += 'MS2 60653 etc.'
+               mess += 'MS2 6065%d' % 3+(int(data[7]) & 0x07)
             elif data[7] == 0x40: 
-               if rng == 0x5330:
+               if rng & 0xfff0 == 0x5330:
                   mess += 'LinkS88'
                elif rng == 0x4342:
                   mess += 'S88 Gateway'
