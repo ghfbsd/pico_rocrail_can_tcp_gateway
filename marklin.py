@@ -292,6 +292,16 @@ def decode(ID,data,detail=False) -> str:
       mess += '(garbled)'
       return mess
 
+   if comm == 0x10:          # S88 POLL
+      mess = resp + ' S88 POLL 10 '
+      if dlen >= 5:
+         mess += '(%s) module %d' % (data[0:4].hex(), int(data[4]))
+         if dlen == 7:
+            mess += ' %0x04' % int.from_bytes(data[5:7])
+         if dlen == 5 or dlen == 7: return mess
+      mess += '(garbled)'
+      return mess
+
    if comm == 0x11:          # FEEDBACK
       mess = resp + ' FEEDBACK 11 '
       if dlen < 4:
