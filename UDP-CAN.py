@@ -313,8 +313,10 @@ async def DEBUG_OUT():
 
    async for buf in debugQUE:
       assert len(buf) == CS2_SIZE
-      data = ' '.join(           # put space between every octet
-         map(''.join, zip(*[iter(buf.hex())]*2))
+      data = '%04x %04x %02x %s' % (
+         int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
+         buf[4],
+         ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4)))
       )
       cid = int.from_bytes(buf[2:4])
       if cid == rrhash:
