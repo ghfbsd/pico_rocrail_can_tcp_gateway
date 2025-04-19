@@ -13,7 +13,7 @@
 # 16 Jan. 2025
 # last revision 18 Apr. 2025
 
-_VER = const('PR185')            # version ID
+_VER = const('PR195')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -195,7 +195,7 @@ async def TCP_READER():
    #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
    #    -----------  --  -----------------------
    #       CAN ID    len  data (left justified)
-   global TCP_R, TCP_RERR, rrhash, ixTC, ixDB
+   global TCP_R, TCP_RERR, rrhash, ixTC, ixDB, fbis
    while True:                   # Wait for connection
       if TCP_R is None:
          await asyncio.sleep_ms(10)
@@ -203,19 +203,27 @@ async def TCP_READER():
 
       try:                       # Serve it
          pkt = await TCP_R.readexactly(CS2_SIZE)
-         assert len(pkt) == CS2_SIZE
-         rrhash = int.from_bytes(pkt[2:4])
-         buf = TtoC[ixTC % QSIZE]
-         buf[0:CS2_SIZE] = pkt
-         await TCPtoCAN.put(buf)
-         ixTC += 1
-         buf = DBQ[ixDB % QSIZE]
-         buf[0:CS2_SIZE] = pkt
-         await debugQUE.put(buf)
-         ixDB += 1
       except EOFError:           # Connection lost/client disconnect
          TCP_RERR, TCP_R = True, None
          continue
+
+      assert len(pkt) == CS2_SIZE
+      rrhash = int.from_bytes(pkt[2:4])
+      buf = TtoC[ixTC % QSIZE]
+      buf[0:CS2_SIZE] = pkt
+      await TCPtoCAN.put(buf)
+      ixTC += 1
+      buf = DBQ[ixDB % QSIZE]
+      buf[0:CS2_SIZE] = pkt
+      await debugQUE.put(buf)
+      ixDB += 1
+
+      #  Check for S88 state poll
+      cmd = int.from_bytes(pkt[0:2]) >> 1 & 0xff
+      sub = int(pkt[9]) if pkt[4] > 4 else -1
+      if cmd == 0x10 and sub == NODE_ID:
+         await CANtoTCP.put(fbis)
+         await debugQUE.put(fbis)
 
 async def CAN_READER():
    global can, INT_PIN
@@ -330,9 +338,11 @@ async def HEARTBEAT():
       pico_led.off()
       await asyncio.sleep(1)
 
+fbis = bytearray(CS2_SIZE)       # Feedback initial state packet
+
 async def FEEDBACK():
    # Feedback via subset of pins
-   global qfCT, qfDB
+   global qfCT, qfDB, fbis
    chn, state = bytearray(8), bytearray(8)
    myhash = 0x5338
 
@@ -350,7 +360,7 @@ async def FEEDBACK():
          trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING,
          handler=lambda p, id=ch: intr(id),
          hard=True)
-      val = fbpin[ch].value()    # Get present state to initialize
+      val = not fbpin[ch].value()# Get present state to initialize
       chn[ch], state[ch] = val, val
       pool[ch] = bytearray(CS2_SIZE)
       pkt = pool[ch]             # Allocate buffer and format static CS2 packet
@@ -365,17 +375,30 @@ async def FEEDBACK():
       pkt[11:13] = 2*b'\x00'
       n += 1
 
+   val = 0
+   for i in range(8): val |= state[i] << i
+   fbis[0] = 0x10 >> 7 & 0xff    # Build initial state packet
+   fbis[1] = 0x10 << 1 | 0x01    # set R flag
+   fbis[2] = myhash >> 8 & 0xff
+   fbis[3] = myhash & 0xff
+   fbis[4] = 7
+   fbis[5:9] = bytes((0x53,0x30,0,NODE_ID))
+   fbis[9] = NODE_ID
+   fbis[10], fbis[11] = 0, val
+   fbis[12] = 0                  # This will be fired off after an S88 POLL cmd
+
    print('Feedback: %d channels, "S88" module %d.' % (n,NODE_ID))
    asyncio.sleep(0)
    while True:
       await flag.wait()
       chg = 0
       for i in range(n):
-         val = fbpin[i].value()  # Get present state to debounce
+         val = not fbpin[i].value()  # Get present state to debounce
          if state[i] != chn[i] or state[i] != val:
             chg |= 1 << i
             chn[i] = val         # Make sure internal state agrees
       if chg:                    # Respond with current status
+         val = 0
          for i in range(n):
             if chg & (1 << i):
                pkt = pool[i]
@@ -393,8 +416,10 @@ async def FEEDBACK():
                   if not qfDB: print('***log q full')
                   qfDB = True
                state[i] = chn[i]
-            if state[i] != fbpin[i].value():
-               print('***pin %d state mismatch' % i)
+               val |= chn[i] << i
+            if state[i] == fbpin[i].value():
+               print('***contact %d state mismatch (corrected)' % i)
+         fbis[11] = val          # Maintain state in poll packet
 
 from asyncio import Loop
 

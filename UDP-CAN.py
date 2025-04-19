@@ -12,7 +12,7 @@
 # 09 Mar. 2025
 # last revision 18 Apr. 2025
 
-_VER = const('PR185')            # version ID
+_VER = const('PR195')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -176,7 +176,7 @@ async def UDP_READER(timeout=0):
    #    -----------  --  -----------------------
    #       CAN ID    len  data (left justified)
    import uselect as select
-   global rrhash, ctsin, ctsou, tsbase, qfUC, qfDB
+   global rrhash, ctsin, ctsou, qfCU, qfUC, qfDB, fbis
 
    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
    s.setblocking(False)
@@ -206,6 +206,22 @@ async def UDP_READER(timeout=0):
          except:
             if not qfDB: print('***log q full')
             qfDB = True
+         #  Check for S88 state poll
+         cmd = int.from_bytes(pkt[0:2]) >> 1 & 0xff
+         sub = int(pkt[9]) if pkt[4] > 4 else -1
+         if cmd == 0x10 and sub == NODE_ID:
+            try:
+               CANtoUDP.put_sync(fbis) # SYSTEM GO means start delivering data
+               qfCU = False
+            except:
+               if not qfCU: print('***CANtoUDP q full')
+               qfCU = True
+            try:
+               debugQUE.put_sync(fbis)
+               qfDB = False
+            except:
+               if not qfDB: print('***log q full')
+               qfDB = True
          npkt += 1
          continue
       await asyncio.sleep_ms(timeout)
@@ -220,7 +236,7 @@ cpkt, ccnt = [], 0
 for i in range(QSIZE): cpkt.append(bytearray(CS2_SIZE))
 
 def CAN_IN(msg, err):
-   global ccnt, cpkt, fbis, qfCU, qfDB
+   global ccnt, cpkt
    
    if err:
       stat = can.intf().getStatus()     # Order matters: status first ...
@@ -258,20 +274,8 @@ def CAN_IN(msg, err):
    sub = int(buf[9]) if msg.dlc > 4 else -1
 #  if cmd == 0x00 and sub == 0x00:
 #     ready = False              # SYSTEM STOP means no more data
-#  Disable state initialization until S88 channel<->bit map understood better
-#  if cmd == 0x00 and sub == 0x01 and rsp:
-#     try:
-#        CANtoUDP.put_sync(fbis) # SYSTEM GO means start delivering data
-#        qfCU = False
-#     except:
-#        if not qfCU: print('***CANtoUDP q full')
-#        qfCU = True
-#     try:
-#        debugQUE.put_sync(fbis)
-#        qfDB = False
-#     except:
-#        if not qfDB: print('***log q full')
-#        qfDB = True
+#  if cmd == 0x00 and sub == 0x01:
+#     ready = True               # SYSTEM GO
    ccnt += 1
 
 async def UDP_WRITER():
@@ -365,7 +369,7 @@ async def FEEDBACK():
          trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING,
          handler=lambda p, id=ch: intr(id),
          hard=True)
-      val = fbpin[ch].value()    # Get present state to initialize
+      val = not fbpin[ch].value()# Get present state to initialize
       chn[ch], state[ch] = val, val
       pool[ch] = bytearray(CS2_SIZE)
       pkt = pool[ch]             # Allocate buffer and format static CS2 packet
@@ -381,16 +385,16 @@ async def FEEDBACK():
       n += 1
 
    val = 0
-   for i in range(8): val |= state[i] << (7-i)
+   for i in range(8): val |= state[i] << i
    fbis[0] = 0x10 >> 7 & 0xff    # Build initial state packet
-   fbis[1] = 0x10 << 1 & 0xff | 0x01   # set R flag
+   fbis[1] = 0x10 << 1 | 0x01    # set R flag
    fbis[2] = myhash >> 8 & 0xff
    fbis[3] = myhash & 0xff
    fbis[4] = 7
-   fbis[5:9] = UID
+   fbis[5:9] = bytes((0x53,0x30,0,NODE_ID))
    fbis[9] = NODE_ID
-   fbis[10], fbis[11] = val, 0
-   fbis[12] = 0                  # This will be fired off after a SYSTEM GO cmd
+   fbis[10], fbis[11] = 0, val
+   fbis[12] = 0                  # This will be fired off after an S88 POLL cmd
 
    print('Feedback: %d channels, "S88" module %d.' % (n,NODE_ID))
    asyncio.sleep(0)
@@ -398,7 +402,7 @@ async def FEEDBACK():
       await flag.wait()
       chg = 0
       for i in range(n):
-         val = fbpin[i].value()  # Get present state to debounce
+         val = not fbpin[i].value() # Get present state to debounce
          if state[i] != chn[i] or state[i] != val:
             chg |= 1 << i
             chn[i] = val         # Make sure internal state agrees
@@ -421,10 +425,10 @@ async def FEEDBACK():
                   if not qfDB: print('***log q full')
                   qfDB = True
                state[i] = chn[i]
-               val |= chn[i] << (7-i)
-            if state[i] != fbpin[i].value():
-               print('***pin %d state mismatch' % i)
-         fbis[10] = val          # Maintain state in initial state packet
+               val |= chn[i] << i
+            if state[i] == fbpin[i].value():
+               print('***contact %d state mismatch (corrected)***' % i)
+         fbis[11] = val          # Maintain state in poll packet
 
 from asyncio import Loop
 
