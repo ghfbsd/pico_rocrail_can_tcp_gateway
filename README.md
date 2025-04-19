@@ -347,8 +347,8 @@ Then click `OK` and your feedback path will be configured.
 If you want Rocrail to detect the initial state of the sensor collection
 at start-up, go back to Rocrail's `Rocrail properties ...` dialog and navigate
 to the `Controller` panel.  Select the name of the hub (e.g., `RPIW-CAN`) and
-open the `Properties` manu.  Under the `Sensors` tab, you'll find a 'Poll at Start of Day` checkbox; select that.  Then make sure that both the `ID` and
-the `Modules` fields are both `1`.
+open the `Properties` menu.  Under the `Sensors` tab, you'll find a `Poll at Start of Day` checkbox; select that.  Then make sure that both the `ID` and
+the `Modules` fields have the value `1`.  `OK` will save the setup request.
 
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/snsr-3.jpg?raw=true)
 
