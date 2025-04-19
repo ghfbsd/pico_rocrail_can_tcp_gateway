@@ -340,7 +340,8 @@ Under the `Interface` tab, choose the WiFi interface for the `Interface ID`
 Then set the `Node ID` and the channel's `Address`.  The node ID will
 always be 1, and the address will be any of 0-7 depending on the pin on the
 RPP that your feedback device connects to (refer to the table above).
-Then click `OK` and your feedback path will be configured.
+Then click `OK` and your feedback path will be configured.  Remember to
+go back to `Trackplan` and select `Operate` before running your locos.
 
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/snsr-2.jpg?raw=true)
 
