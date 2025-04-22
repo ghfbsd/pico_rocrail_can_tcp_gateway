@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 18 Apr. 2025
+# last revision 21 Apr. 2025
 
-_VER = const('PR195')            # version ID
+_VER = const('PR215')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -305,7 +305,7 @@ async def CAN_WRITER(MERR=5, MCNT=500):
             break
 
 async def DEBUG_OUT():
-   global rrhash, avail
+   global rrhash, dec
    async for buf in debugQUE:
       assert len(buf) == CS2_SIZE
       data = '%04x %04x %02x %s' % (
@@ -318,11 +318,9 @@ async def DEBUG_OUT():
          print('TCP -> CAN', data)
       else:
          print('CAN -> TCP', data)
-      if avail:
-         print('   ', decode(
-               int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])], detail=True
-            )
-         )
+      dec.decode(
+         int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])]
+      )
       if TCPtoCAN.qsize() > 0 and TCPtoCAN.qsize() % 5 == 0:
          print('TCPtoCAN queue congestion: %d waiting' % TCPtoCAN.qsize())
       if CANtoTCP.qsize() > 0 and CANtoTCP.qsize() % 5 == 0:
@@ -425,11 +423,16 @@ from asyncio import Loop
 
 print('TCP <-> CAN packet hub (%s)' % _VER)
 try:
-   from marklin import decode    # Marklin CS2 CAN packet decoder
-   avail = True
+   from marklin import decode, CS2decoder    # Marklin CS2 CAN packet decoder
 except:
-   avail = False                 # don't use it if not available
+   # Dummy decoder if not available
+   class CS2decoder:
+      def __init__(self,*pos,**kwd):
+         pass
+      def decode(self,*pos,**kwd):
+         pass
    print('No Märklin packet decoding, only logging raw data.')
+dec = CS2decoder(pfx='    ',detail=True,print=True)
 
 #Connect to WLAN
 wlan = network.WLAN(network.STA_IF)

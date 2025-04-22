@@ -5,6 +5,57 @@
 
 # See https://github.com/ghfbsd
 
+class CS2decoder:
+   channel = dict()              # Built-in values for 60116 Gleisbox
+
+   # fbx x=1..4: RGB color encoded rrggbbxx (2 bits each color, xx unused)
+   # ebx x=1..4: value at end of range 1..4 in given units
+
+   channel[1] = ("TRACK","A", 0.,  2.5,
+   # pow  fb1 fb2 fb3 fb4 zero  lim  eb1  eb2  eb3  eb4
+      -3,  48,240,224,192,  15,2060,1648,1730,1895,2060
+   )
+   channel[3] = ("VOLT", "V", 10., 27.,
+      -3, 192, 12, 48,192,   0,3145, 925,1202,2590,3145
+   )
+   channel[4] = ("TEMP", "C",  0., 80.,
+       0,  12,  8,240,192,   0, 219, 107, 164, 205, 219
+   )
+
+   def __init__(self,detail=False,pfx='',print=False):
+      self.detail = detail
+      self.pfx = pfx
+      self.print = print
+
+   def decode(self,ID,data):
+
+      detail = self.detail
+      comm = ID >> 17 & 0xff
+      sub = data[4] if len(data) > 3 else -1
+      resp = ID & 0x00010000
+
+      if comm == 0x00 and sub == 0x0b and resp and detail:
+         dlc = len(data)
+         if resp and dlc != 8:
+            return decode(ID, data, detail)
+         chan = int(data[5])
+         if chan not in self.channel:
+            return decode(ID, data, detail)
+         (name, unit, cmin, cmax, pow,
+            fb1, fb2, fb3, fb4, zero, lim,
+            eb1, eb2, eb3, eb4) = self.channel[chan]
+         val = (cmax - cmin) / (lim - zero)
+         val = val * (int.from_bytes(data[6:8],'big') - zero) + cmin
+         mess = 'R' if resp else 'C'
+         mess += ' SYSTEM STATUS 00/0B (channel %d)' % chan
+         mess += ' %s %.2f%s' % (name, val, unit)
+      else:
+         mess = decode(ID, data, detail)
+
+      if self.print: print('%s%s' % (self.pfx,mess))
+      return mess
+
+
 def decode(ID,data,detail=False) -> str:
    hash = ID & 0xffff
    resp = 'R' if ID & 0x00010000 else 'C'
