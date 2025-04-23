@@ -8,14 +8,15 @@
 #          or Pico-CAN-B board by Waveshare (https://www.waveshare.com)
 
 # original version 15 Jan. '25
+# last revision 23 Apr. '25
 
-_VER = 'PR155'                   # version ID
+_VER = 'PR235'                   # version ID
 
 CS2_SIZE = const(13)             # Fixed by protocol definition
 
 QSIZE = const(25)                # Size of various I/O queues (overkill)
 
-_CANBOARD = const('JI')
+_CANBOARD = const('WS')
 
 if _CANBOARD == 'JI':
    # These pin assignments are appropriate for a RB-P-CAN-485 Joy-IT board
@@ -36,6 +37,7 @@ else:
 
 import uasyncio as asyncio
 from threadsafe import ThreadSafeQueue
+import sys
 
 print('CS1/CS2 protocol packet sniffer (%s)' % _VER)
 try:
@@ -107,27 +109,26 @@ class iCAN:                   # interrupt driven CAN message sniffer
    def stop(self):
       self.pin.irq(handler=None)
 
-DBQ = []
-for i in range(QSIZE): DBQ.append(bytearray(CS2_SIZE))
-debugQUE = ThreadSafeQueue(DBQ)
+DBQ = QSIZE*[None]
+for i in range(QSIZE): DBQ[i] = bytearray(CS2_SIZE)
+debugQUE = ThreadSafeQueue(CS2_SIZE)
 qix = 0
 
 def sniffer(msg, err):
    global qix, DBQ
    # Print received message details
    if err:
-      print('*** CAN reception error')
+      print('*** CAN receive error')
       return
 
-#  print('------------------------------')
    buf = DBQ[qix % QSIZE]
    buf[0] = msg.can_id >> 24 & 0xff 
    buf[1] = msg.can_id >> 16 & 0xff 
    buf[2] = msg.can_id >>  8 & 0xff 
    buf[3] = msg.can_id       & 0xff
    buf[4] = msg.dlc
-   buf[5:14] = 8*b'\x00'
-   for i in range(msg.dlc): buf[5 + i] = msg.data[i]
+   buf[5:5+msg.dlc] = msg.data
+   buf[5+msg.dlc:CS2_SIZE] = (8-msg.dlc)*b'\x00'
    try:
       debugQUE.put_sync(buf)     # put_sync because no await used
    except:
@@ -135,8 +136,8 @@ def sniffer(msg, err):
    qix += 1
 
 async def DEBUG_OUT():
-   global DBQ
    async for buf in debugQUE:
+      assert len(buf) == CS2_SIZE
       data = '%04x %04x %02x %s' % (
          int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
          buf[4],
@@ -163,8 +164,13 @@ beat = asyncio.create_task(HEARTBEAT())
 dbug = asyncio.create_task(DEBUG_OUT())
 
 # Create a Can object instance for interfacing with the CAN bus
-can = iCAN(intr=INT_PIN)
 try:
+   can = iCAN(intr=INT_PIN)
    asyncio.run(can.run(sniffer))
+except RuntimeError:
+   print(
+      '***Error initializing %s CAN board; check configuration/wiring.' %
+      _CANBOARD
+   )
 except KeyboardInterrupt:
    can.stop()
