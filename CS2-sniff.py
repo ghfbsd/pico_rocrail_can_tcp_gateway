@@ -8,9 +8,9 @@
 #          or Pico-CAN-B board by Waveshare (https://www.waveshare.com)
 
 # original version 15 Jan. '25
-# last revision 23 Apr. '25
+# last revision 24 Apr. '25
 
-_VER = 'PR235'                   # version ID
+_VER = 'PR245'                   # version ID
 
 CS2_SIZE = const(13)             # Fixed by protocol definition
 
@@ -111,8 +111,7 @@ class iCAN:                   # interrupt driven CAN message sniffer
 
 DBQ = QSIZE*[None]
 for i in range(QSIZE): DBQ[i] = bytearray(CS2_SIZE)
-debugQUE = ThreadSafeQueue(CS2_SIZE)
-qix = 0
+debugQUE, qix = ThreadSafeQueue(QSIZE), 0
 
 def sniffer(msg, err):
    global qix, DBQ
