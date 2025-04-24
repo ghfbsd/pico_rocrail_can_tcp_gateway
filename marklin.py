@@ -31,7 +31,7 @@ class CS2decoder:
 
       detail = self.detail
       comm = ID >> 17 & 0xff
-      sub = data[4] if len(data) > 3 else -1
+      sub = data[4] if len(data) > 4 else -1
       resp = ID & 0x00010000
 
       if comm == 0x00 and sub == 0x0b and resp and detail:
