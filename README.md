@@ -301,6 +301,8 @@ run them both.  Only the RPP's USB connection will talk to **rshell** though.
 
 ## Additional features
 
+![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/feedback.jpg?raw=true)
+
 The hub also provides a small number of feedback pathways to the train
 controller software like Rocrail.  It is equivalent to a Märklin S88+L88
 connected to a CS2/CS3 controller (but with only 8 feedback paths).
@@ -319,8 +321,10 @@ The simulated S88 node ID is 1, and contacts 0-7 are available:
 |    7    | GPIO 15 = pin 20| GPIO 13 = pin 17|
 
 Connect your feedback devices using breadboard jumper wires: one to one of
-the RPP ground pins (pin 3, 8, 13 or 18) and either a male or female
-jumper wire to the appropriate pin for the contact channel.
+the RPP ground pins (pin 3, 8, 13, 18, 23, 28, 33 or 38) and either a male or
+female jumper wire to the appropriate pin for the contact channel.
+The image above shows 4 current sensors attached through a Joy-IT board as
+contacts 0-3.
 
 **The feedback voltage levels should be at logic levels around 5V.
 Track voltages (~18V) will damage or destroy the RPP and CAN board.
