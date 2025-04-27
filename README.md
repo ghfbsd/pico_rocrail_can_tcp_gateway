@@ -355,6 +355,11 @@ the `Modules` fields have the value `1`.  `OK` will save the setup request.
 
 ## Operational notes
 
+The hub should be able to auto-detect which CAN board you are using.  If
+you suspect problems, you can edit the code to explicitly select a CAN board
+type.  If the problems persist, you have a wiring problem or a malfunctioning
+board.
+
 There are two board monitor functions provided via the LED on the RPP.
 * When connecting to WiFi, there is a fast LED flash.  Once the connection
 is made, you will see a slower flash.

@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 24 Apr. 2025
+# last revision 27 Apr. 2025
 
-_VER = const('PR245')            # version ID
+_VER = const('PR275')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -26,41 +26,8 @@ QSIZE = const(25)                # Size of various I/O queues (overkill)
 NODE_ID = const(1)               # "S88" node ID
 SETTLE_TIME = const(125)         # "S88" contact settle time (ms)
 
-_CANBOARD = const('WS')
-
-if _CANBOARD == 'JI':
-   # These pin assignments are appropriate for a RB-P-CAN-485 Joy-IT board
-   INT_PIN = 20                  # Interrupt pin for CAN board
-   SPI_CS = 17
-   SPI_SCK = 18
-   SPI_MOSI = 19
-   SPI_MISO = 16
-   FBP = [                       # Feedback pins
-      #   +---- channel number
-      #   |  +- GPIO pin number
-      #   |  |
-      #   v  v
-         (0, 0), (1, 1), (2, 8), (3, 9),
-         (4,10), (5,11), (6,14), (7,15)
-   ]
-elif _CANBOARD == 'WS':
-   # These pin assignments are appropriate for a Waveshare Pico-CAN-B board
-   INT_PIN = 21                  # Interrupt pin for CAN board
-   SPI_CS = 5
-   SPI_SCK = 6
-   SPI_MOSI = 7
-   SPI_MISO = 4
-   FBP = [                       # Feedback pins
-      #   +---- channel number
-      #   |  +- GPIO pin number
-      #   |  |
-      #   v  v
-         (0, 0), (1, 1), (2, 2), (3, 3),
-         (4,10), (5,11), (6,12), (7,13)
-   ]
-else:
-   raise RuntimeError('***%s is an unsupported CAN board***' % _CANBOARD)
-
+_CANBOARD = const('auto')        # Board choice: 'auto' for auto-detect or
+                                 # 'JI' or 'WS'
 import uasyncio as asyncio
 import network
 import sys
@@ -73,33 +40,106 @@ from machine import Pin, Timer
 pico_led = Pin("LED", Pin.OUT)
 
 class iCAN:                      # interrupt driven CAN message sniffer
-   from canbus import Can, CanError
-   from canbus.internal import CAN_SPEED
-   from machine import Pin, SPI
+   from collections import namedtuple
 
-   prep = SPI(0,                 # configure SPI to use correct pins
-      sck=Pin(SPI_SCK), mosi=Pin(SPI_MOSI), miso=Pin(SPI_MISO)
+   CAN_pins = namedtuple('CAN pins',
+      ['INT_PIN','SPI_CS', 'SPI_SCK', 'SPI_MOSI', 'SPI_MISO', 'FBP', 'name']
+   )
+   pins_JI = CAN_pins(
+      # These pin assignments are appropriate for a RB-P-CAN-485 Joy-IT board
+      name = 'Joy-IT',
+      INT_PIN = 20,                 # Interrupt pin for CAN board
+      SPI_CS = 17,
+      SPI_SCK = 18,
+      SPI_MOSI = 19,
+      SPI_MISO = 16,
+      FBP = [                       # Feedback pins
+         #   +---- channel number
+         #   |  +- GPIO pin number
+         #   |  |
+         #   v  v
+            (0, 0), (1, 1), (2, 8), (3, 9),
+            (4,10), (5,11), (6,14), (7,15)
+      ]
+   )
+   pins_WS = CAN_pins(
+      # These pin assignments are appropriate for a Waveshare Pico-CAN-B board
+      name = 'Waveshare',
+      INT_PIN = 21,                 # Interrupt pin for CAN board
+      SPI_CS = 5,
+      SPI_SCK = 6,
+      SPI_MOSI = 7,
+      SPI_MISO = 4,
+      FBP = [                       # Feedback pins
+         #   +---- channel number
+         #   |  +- GPIO pin number
+         #   |  |
+         #   v  v
+            (0, 0), (1, 1), (2, 2), (3, 3),
+            (4,10), (5,11), (6,12), (7,13)
+      ]
+   )
+   boards = dict(
+      WS = pins_WS,
+      JI = pins_JI
    )
 
-   def __init__(self, intr=None):
-      from machine import Pin
+   def __init__(self, conf=None):
+      from machine import Pin, SPI
       from canbus import Can, CanError
       from canbus.internal import CAN_SPEED
 
-      if intr is None:
-         raise RuntimeError('Need to provide CAN interrupt pin')
+      if conf is None:
+         raise RuntimeError("Need to provide CAN board type or 'auto'")
+      if conf == 'auto':
+         for bd in iCAN.boards:
+            # Check if the initialization is successful
+            pin = iCAN.boards[bd]
+            self.spi = SPI(0,    # configure SPI to use this board's pins
+                sck=Pin(pin.SPI_SCK),
+                mosi=Pin(pin.SPI_MOSI),
+                miso=Pin(pin.SPI_MISO)
+            )
+            # Create an instance of the Can class to interface with the CAN bus
+            self.can = Can(spics=pin.SPI_CS)
+            if self.can.begin() == CanError.ERROR_OK:
+               break
+         else:
+            raise RuntimeError(
+               "***Can't auto-detect board; set explicit board name***"
+            )
+      elif conf in iCAN.boards:   # Explicit board choice?
+         pin = iCAN.boards[conf]
+         self.spi = SPI(0,        # configure SPI to use this board's pins
+             sck=Pin(pin.SPI_SCK),
+             mosi=Pin(pin.SPI_MOSI),
+             miso=Pin(pin.SPI_MISO)
+         )
+         # Create an instance of the Can class to interface with the CAN bus
+         self.can = Can(spics=pin.SPI_CS)
+         if self.can.begin() != CanError.ERROR_OK:
+            raise RuntimeError("Error initializing %s CAN board - check type!" %
+               pin.name
+            )
+      else:
+         raise RuntimeError('***%s is an unsupported CAN board***' % conf)
+
+      self._pins = pin
       self.flag = asyncio.ThreadSafeFlag()
-      self.pin = Pin(intr, Pin.IN, Pin.PULL_UP)
+      self.pin = Pin(pin.INT_PIN, Pin.IN, Pin.PULL_UP)
       self.pin.irq(              # this defines the interrupt handler (lambda)
          trigger=Pin.IRQ_FALLING,
          handler=lambda pin: self.flag.set(),
          hard=True)
-      self.can = Can(spics=SPI_CS) # CS pin for hardware SPI 0
+      self.can = Can(spics=pin.SPI_CS) # CS pin for hardware SPI 0
       # Initialize the CAN interface.  Reference says 250 kbps speed.
       ret = self.can.begin(bitrate=CAN_SPEED.CAN_250KBPS)
       if ret != CanError.ERROR_OK:
          raise RuntimeError('Error initializing CAN bus')
-      print("CAN initialized successfully, waiting for traffic.")
+
+   @property
+   def pins(self):               # allow e.g. can.pins.FBP, can.pins.name
+      return self._pins
 
    def intf(self):               # hardware interface level access if needed
       return self.can
@@ -219,7 +259,7 @@ class feedback:
 
       print('Feedback: %d channels, "S88" module %d.' % (self.n,node))
 
-      self.ticker = machine.Timer()
+      self.ticker = Timer()
       self.ticker.init(
          mode=Timer.PERIODIC,
          period=1000,
@@ -383,9 +423,12 @@ async def TCP_READER():
          await CANtoTCP.put(fbpp)
          await debugQUE.put(fbpp)
 
+can = iCAN(_CANBOARD)
 async def CAN_READER():
-   global can, INT_PIN
-   can = iCAN(intr=INT_PIN)
+   print(
+      "CAN %s board initialized successfully, waiting for traffic." %
+      can.pins.name
+   )
    can.run(CAN_IN)
 
 def CAN_IN(msg, err, buf=bytearray(CS2_SIZE)):
@@ -494,7 +537,7 @@ async def HEARTBEAT():
       pico_led.off()
       await asyncio.sleep(1)
 
-fdbk = feedback(NODE_ID,FBP)     # Feedback framework initialization
+fdbk = feedback(NODE_ID,can.pins.FBP) # Feedback framework initialization
 
 async def FEEDBACK(fdbk):
    # Simulated S88 feedback
