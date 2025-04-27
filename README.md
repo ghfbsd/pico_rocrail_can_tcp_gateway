@@ -102,8 +102,6 @@ Start **rshell** and connect to the RPP to test the CAN interface board.
 Try the `can_test_intr.py` in the
 [RB-P-CAN-485 repository](https://github.com/ghfbsd/RB-P-CAN-485)
 to verify that it is working properly.
-If using the Waveshare board, make sure you configure
-`can_test_intr.py` properly to use the different pin assignments.
 
 ### Download more software
 
@@ -139,9 +137,7 @@ SSID = "****"
 PASS = "****"
 ```
 to the appropriate network name and password for your WiFi environment.
-The default configuration assumes you're using the Joy-IT board.
-If you have a Waveshare board, edit the code to use the right pin assignments
-for it.  Then, save the file.
+Then, save the file.
 
 Finally, using **rshell**, load the program and make it run
 automatically when the RPP starts up.
@@ -379,8 +375,9 @@ unplugging it and plugging it back in.
 
 If you want to monitor the CAN traffic between the Gleisbox and your controller
 (an MS1, MS2, a CS2, or a CS3), download the `CS2-sniff.py` program to
-your RPP and run it while attached via the USB cable.  It will print out a log
-of all of the packets exchanged over the CAN bus.  In *rshell*,
+your RPP and run it while attached via the USB cable (and wired to the CAN
+bus).  It will print out a log of all of the packets exchanged over the CAN bus.
+In *rshell*,
 
 ```
 xxx> cp CS2-sniff.py /pyboard
