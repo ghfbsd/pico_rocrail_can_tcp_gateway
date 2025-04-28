@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 09 Mar. 2025
-# last revision 27 Apr. 2025
+# last revision 28 Apr. 2025
 
-_VER = const('PR275')            # version ID
+_VER = const('PR285')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -342,9 +342,11 @@ class feedback:
                val |= 1 << i
          self.fbpp[11] = val     # Maintain state in poll packet
 
+   @property
    def state_packet(self):       # provide state packet
       return self.fbpp
 
+   @property
    def stats(self):              # provide interrupt stats
       return (self._n, self._secs)
 
@@ -379,7 +381,7 @@ async def UDP_READER(timeout=0):
    #    -----------  --  -----------------------
    #       CAN ID    len  data (left justified)
    import uselect as select
-   global rrhash, ctsin, ctsou, qfCU, qfUC, qfDB, fbis
+   global rrhash, ctsin, ctsou, qfCU, qfUC, qfDB
 
    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
    s.setblocking(False)
@@ -413,7 +415,7 @@ async def UDP_READER(timeout=0):
          cmd = int.from_bytes(pkt[0:2]) >> 1 & 0xff
          sub = int(pkt[9]) if pkt[4] > 4 else -1
          if cmd == 0x10 and sub == NODE_ID:
-            fbpp = fdbk.state_packet()
+            fbpp = fdbk.state_packet
             try:
                CANtoUDP.put_sync(fbpp)
                qfCU = False
@@ -475,13 +477,6 @@ def CAN_IN(msg, err):
       if qfDB: print(DBGmsg)
       qfDB = True
 
-   cmd = msg.can_id >> 17 & 0xff
-   rsp = msg.can_id & 0x00010000
-   sub = int(buf[9]) if msg.dlc > 4 else -1
-#  if cmd == 0x00 and sub == 0x00:
-#     ready = False              # SYSTEM STOP means no more data
-#  if cmd == 0x00 and sub == 0x01:
-#     ready = True               # SYSTEM GO
    ccnt += 1
 
 async def UDP_WRITER():
@@ -552,7 +547,7 @@ async def HEARTBEAT():
 
 fdbk = feedback(NODE_ID,can.pins.FBP) # Feedback framework initialization
 
-async def FEEDBACK(fdbk):
+async def FEEDBACK():
    # Simulated S88 feedback
 
    def post(pkt):                # Called for every change in state
@@ -622,9 +617,12 @@ udpw = asyncio.create_task(UDP_WRITER())
 canw = asyncio.create_task(CAN_WRITER())
 dbug = asyncio.create_task(DEBUG_OUT())
 beat = asyncio.create_task(HEARTBEAT())
-feed = asyncio.create_task(FEEDBACK(fdbk))
+feed = asyncio.create_task(FEEDBACK())
 
 try:
    Loop.run_until_complete(udpr)
 except KeyboardInterrupt:
    can.stop()
+   stats = fdbk.stats
+   fdbk.stop()
+   print('Interrupts: %d, %.2f/sec' % (stats[0], stats[0]/stats[1]))
