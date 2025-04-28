@@ -514,7 +514,7 @@ async def CAN_WRITER(MERR=5, MCNT=500):
             break
 
 async def DEBUG_OUT():
-   global rrhash, dec
+   global rrhash
 
    async for buf in debugQUE:
       assert len(buf) == CS2_SIZE
