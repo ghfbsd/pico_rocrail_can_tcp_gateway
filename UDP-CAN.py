@@ -461,8 +461,8 @@ def CAN_IN(msg, err):
    buf[2] = msg.can_id >>  8 & 0xff 
    buf[3] = msg.can_id       & 0xff
    buf[4] = msg.dlc
-   buf[5:14] = 8*b'\x00'
-   for i in range(msg.dlc): buf[5 + i] = msg.data[i]
+   buf[5:5+msg.dlc] = msg.data
+   buf[5+msg.dlc:CS2_SIZE] = (8-msg.dlc)*b'\x00'
 
    try:
       CANtoUDP.put_sync(buf)
@@ -625,4 +625,4 @@ except KeyboardInterrupt:
    can.stop()
    stats = fdbk.stats
    fdbk.stop()
-   print('Interrupts: %d, %.2f/sec' % (stats[0], stats[0]/stats[1]))
+   print('Feedback interrupts: %d, %.2f/sec' % (stats[0], stats[0]/stats[1]))
