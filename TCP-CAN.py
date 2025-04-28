@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 27 Apr. 2025
+# last revision 28 Apr. 2025
 
-_VER = const('PR275')            # version ID
+_VER = const('PR285')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -338,9 +338,11 @@ class feedback:
                val |= 1 << i
          self.fbpp[11] = val     # Maintain state in poll packet
 
+   @property
    def state_packet(self):       # provide state packet
       return self.fbpp
 
+   @property
    def stats(self):              # provide interrupt stats
       return (self._n, self._secs)
 
@@ -389,7 +391,7 @@ async def TCP_READER():
    #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
    #    -----------  --  -----------------------
    #       CAN ID    len  data (left justified)
-   global TCP_R, TCP_RERR, rrhash, ixTC, ixDB, fdbk
+   global TCP_R, TCP_RERR, rrhash, ixTC, ixDB
    while True:                   # Wait for connection
       if TCP_R is None:
          await asyncio.sleep_ms(10)
@@ -419,7 +421,7 @@ async def TCP_READER():
       cmd = int.from_bytes(pkt[0:2]) >> 1 & 0xff
       sub = int(pkt[9]) if pkt[4] > 4 else -1
       if cmd == 0x10 and sub == NODE_ID:
-         fbpp = fdbk.state_packet()
+         fbpp = fdbk.state_packet
          await CANtoTCP.put(fbpp)
          await debugQUE.put(fbpp)
 
@@ -539,7 +541,7 @@ async def HEARTBEAT():
 
 fdbk = feedback(NODE_ID,can.pins.FBP) # Feedback framework initialization
 
-async def FEEDBACK(fdbk):
+async def FEEDBACK():
    # Simulated S88 feedback
 
    def post(pkt):                # Called for every change in state
@@ -604,12 +606,12 @@ tcpw = asyncio.create_task(TCP_WRITER())
 canw = asyncio.create_task(CAN_WRITER())
 dbug = asyncio.create_task(DEBUG_OUT())
 beat = asyncio.create_task(HEARTBEAT())
-feed = asyncio.create_task(FEEDBACK(fdbk))
+feed = asyncio.create_task(FEEDBACK())
 
 try:
    Loop.run_until_complete(asyncio.start_server(TCP_SERVER,ip,CS2_PORT))
 except KeyboardInterrupt:
    can.stop()
-   stats = fdbk.stats()
-   print('Interrupts: %d, %.2f/sec' % (stats[0], stats[0]/stats[1]))
+   stats = fdbk.stats
    fdbk.stop()
+   print('Interrupts: %d, %.2f/sec' % (stats[0], stats[0]/stats[1]))
