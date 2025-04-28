@@ -614,4 +614,4 @@ except KeyboardInterrupt:
    can.stop()
    stats = fdbk.stats
    fdbk.stop()
-   print('Interrupts: %d, %.2f/sec' % (stats[0], stats[0]/stats[1]))
+   print('Feedback interrupts: %d, %.2f/sec' % (stats[0], stats[0]/stats[1]))
