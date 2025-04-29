@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 28 Apr. 2025
+# last revision 29 Apr. 2025
 
-_VER = const('PR285')            # version ID
+_VER = const('PR295')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -45,43 +45,41 @@ class iCAN:                      # interrupt driven CAN message sniffer
    CAN_pins = namedtuple('CAN pins',
       ['INT_PIN','SPI_CS', 'SPI_SCK', 'SPI_MOSI', 'SPI_MISO', 'FBP', 'name']
    )
-   pins_JI = CAN_pins(
-      # These pin assignments are appropriate for a RB-P-CAN-485 Joy-IT board
-      name = 'Joy-IT',
-      INT_PIN = 20,                 # Interrupt pin for CAN board
-      SPI_CS = 17,
-      SPI_SCK = 18,
-      SPI_MOSI = 19,
-      SPI_MISO = 16,
-      FBP = [                       # Feedback pins
-         #   +---- channel number
-         #   |  +- GPIO pin number
-         #   |  |
-         #   v  v
-            (0, 0), (1, 1), (2, 8), (3, 9),
-            (4,10), (5,11), (6,14), (7,15)
-      ]
-   )
-   pins_WS = CAN_pins(
-      # These pin assignments are appropriate for a Waveshare Pico-CAN-B board
-      name = 'Waveshare',
-      INT_PIN = 21,                 # Interrupt pin for CAN board
-      SPI_CS = 5,
-      SPI_SCK = 6,
-      SPI_MOSI = 7,
-      SPI_MISO = 4,
-      FBP = [                       # Feedback pins
-         #   +---- channel number
-         #   |  +- GPIO pin number
-         #   |  |
-         #   v  v
-            (0, 0), (1, 1), (2, 2), (3, 3),
-            (4,10), (5,11), (6,12), (7,13)
-      ]
-   )
    boards = dict(
-      WS = pins_WS,
-      JI = pins_JI
+      JI = CAN_pins(
+         name = 'Joy-IT',           # These pin assignments are appropriate for
+                                    # a RB-P-CAN-485 Joy-IT board
+         INT_PIN = 20,              # Interrupt pin for CAN board
+         SPI_CS = 17,
+         SPI_SCK = 18,
+         SPI_MOSI = 19,
+         SPI_MISO = 16,
+         FBP = [                    # Feedback pins
+            #   +---- channel number
+            #   |  +- GPIO pin number
+            #   |  |
+            #   v  v
+               (0, 0), (1, 1), (2, 8), (3, 9),
+               (4,10), (5,11), (6,14), (7,15)
+         ]
+      ),
+      WS = CAN_pins(
+         name = 'Waveshare',        # These pin assignments are appropriate for
+                                    # a Waveshare Pico-CAN-B board
+         INT_PIN = 21,              # Interrupt pin for CAN board
+         SPI_CS = 5,
+         SPI_SCK = 6,
+         SPI_MOSI = 7,
+         SPI_MISO = 4,
+         FBP = [                       # Feedback pins
+            #   +---- channel number
+            #   |  +- GPIO pin number
+            #   |  |
+            #   v  v
+               (0, 0), (1, 1), (2, 2), (3, 3),
+               (4,10), (5,11), (6,12), (7,13)
+         ]
+      )
    )
 
    def __init__(self, conf=None):
@@ -141,6 +139,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
    def pins(self):               # allow e.g. can.pins.FBP, can.pins.name
       return self._pins
 
+   @property
    def intf(self):               # hardware interface level access if needed
       return self.can
 
@@ -436,9 +435,9 @@ async def CAN_READER():
 def CAN_IN(msg, err, buf=bytearray(CS2_SIZE)):
    global ixCT, ixDB, qfCT, qfDB
    if err:
-      stat = can.intf().getStatus()     # Order matters: status first ...
-      intr = can.intf().getInterrupts() # ...then interrupt reg
-      errf = can.intf().getErrorFlags()
+      stat = can.intf.getStatus()     # Order matters: status first ...
+      intr = can.intf.getInterrupts() # ...then interrupt reg
+      errf = can.intf.getErrorFlags()
       print('   >>>CAN read error<<< stat %02x intr %02x err %02x' %
          (stat,intr,errf)
       )
@@ -486,7 +485,6 @@ async def TCP_WRITER():
          TCP_WERR, TCP_W = True, None
 
 async def CAN_WRITER(MERR=5, MCNT=500):
-   global can
    async for pkt in TCPtoCAN:
       assert len(pkt) == CS2_SIZE
       cnt = 0
@@ -496,13 +494,13 @@ async def CAN_WRITER(MERR=5, MCNT=500):
             EFF=True
       ):
          cnt += 1
-         errf = can.intf().getErrorFlags() # Error Flag register
+         errf = can.intf.getErrorFlags() # Error Flag register
          if cnt <= MERR:
             print('   >>>CAN write error<<< (err %02x)%s' % 
                (errf, ' - quelling further reports' if cnt >= MERR else '')
             )
          if errf & 0x30:         # TXBO/Bus-Off or TXEP/TX-Passive
-            can.intf().clearErrorFlags(MERR=True)
+            can.intf.clearErrorFlags(MERR=True)
          await asyncio.sleep_ms(10)
          if cnt > MCNT:          # Abandon packet after this many tries
             break
