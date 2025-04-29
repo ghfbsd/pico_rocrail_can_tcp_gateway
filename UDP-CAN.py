@@ -143,6 +143,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
    def pins(self):               # allow e.g. can.pins.FBP, can.pins.name
       return self._pins
 
+   @property
    def intf(self):               # hardware interface level access if needed
       return self.can
 
@@ -447,9 +448,9 @@ def CAN_IN(msg, err):
    global ccnt, cpkt, qfCU, qfDB
    
    if err:
-      stat = can.intf().getStatus()     # Order matters: status first ...
-      intr = can.intf().getInterrupts() # ...then interrupt reg
-      errf = can.intf().getErrorFlags()
+      stat = can.intf.getStatus()     # Order matters: status first ...
+      intr = can.intf.getInterrupts() # ...then interrupt reg
+      errf = can.intf.getErrorFlags()
       print('   >>>CAN read error<<< stat %02x intr %02x err %02x' %
          (stat,intr,errf)
       )
@@ -492,7 +493,6 @@ async def UDP_WRITER():
          s.sendto(pkt, ('255.255.255.255',CS2_SPORT))
 
 async def CAN_WRITER(MERR=5, MCNT=500):
-   global can
    async for pkt in UDPtoCAN:
       assert len(pkt) == CS2_SIZE
       cnt = 0
@@ -502,13 +502,13 @@ async def CAN_WRITER(MERR=5, MCNT=500):
             EFF=True
       ):
          cnt += 1
-         errf = can.intf().getErrorFlags() # Error Flag register
+         errf = can.intf.getErrorFlags() # Error Flag register
          if cnt <= MERR:
             print('   >>>CAN write error<<< (err %02x)%s' % 
                (errf, ' - quelling further reports' if cnt >= MERR else '')
             )
          if errf & 0x30:         # TXBO/Bus-Off or TXEP/TX-Passive
-            can.intf().clearErrorFlags(MERR=True)
+            can.intf.clearErrorFlags(MERR=True)
          await asyncio.sleep_ms(10)
          if cnt > MCNT:          # Abandon packet after this many tries
             break
