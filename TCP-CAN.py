@@ -87,6 +87,11 @@ class iCAN:                      # interrupt driven CAN message sniffer
       from canbus import Can, CanError
       from canbus.internal import CAN_SPEED
 
+      try:
+         CanError.decode()       # Needed for CAN bus error reports
+      except:
+         raise RuntimeError("Update canbus module - new features used")
+
       if conf is None:
          raise RuntimeError("Need to provide CAN board type or 'auto'")
       if conf == 'auto':
@@ -432,14 +437,17 @@ async def CAN_READER():
    can.run(CAN_IN)
 
 def CAN_IN(msg, err, buf=bytearray(CS2_SIZE)):
+   from canbus import CanError
    global ixCT, ixDB, qfCT, qfDB
    if err:
       stat = can.intf.getStatus()     # Order matters: status first ...
       intr = can.intf.getInterrupts() # ...then interrupt reg
       errf = can.intf.getErrorFlags()
-      print('   >>>CAN read error<<< stat %02x intr %02x err %02x' %
-         (stat,intr,errf)
-      )
+      print('   >>>CAN read error<<< stat %02x %s intr %02x %s err %02x %s' % (
+         stat, CanError.decode(status=stat),
+         intr, CanError.decode(interrupt=intr),
+         errf, CanError.decode(error=errf)
+      ))
       return
    buf[0] = msg.can_id >> 24 & 0xff 
    buf[1] = msg.can_id >> 16 & 0xff 
@@ -484,6 +492,7 @@ async def TCP_WRITER():
          TCP_WERR, TCP_W = True, None
 
 async def CAN_WRITER(MERR=5, MCNT=500):
+   from canbus import CanError
    async for pkt in TCPtoCAN:
       assert len(pkt) == CS2_SIZE
       cnt = 0
@@ -495,8 +504,9 @@ async def CAN_WRITER(MERR=5, MCNT=500):
          cnt += 1
          errf = can.intf.getErrorFlags() # Error Flag register
          if cnt <= MERR:
-            print('   >>>CAN write error<<< (err %02x)%s' % 
-               (errf, ' - quelling further reports' if cnt >= MERR else '')
+            print('   >>>CAN write error<<< (err %02x %s)%s' % 
+               (errf, CanError.decode(error=errf),
+                  ' - quelling further reports' if cnt >= MERR else '')
             )
          if errf & 0x30:         # TXBO/Bus-Off or TXEP/TX-Passive
             can.intf.clearErrorFlags(MERR=True)
