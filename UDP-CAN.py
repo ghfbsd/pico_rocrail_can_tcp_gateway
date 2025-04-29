@@ -10,9 +10,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 09 Mar. 2025
-# last revision 28 Apr. 2025
+# last revision 29 Apr. 2025
 
-_VER = const('PR285')            # version ID
+_VER = const('PR295')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -444,7 +444,7 @@ cpkt, ccnt = [], 0
 for i in range(QSIZE): cpkt.append(bytearray(CS2_SIZE))
 
 def CAN_IN(msg, err):
-   global ccnt, cpkt
+   global ccnt, cpkt, qfCU, qfDB
    
    if err:
       stat = can.intf().getStatus()     # Order matters: status first ...
