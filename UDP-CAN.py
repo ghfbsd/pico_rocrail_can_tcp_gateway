@@ -319,7 +319,6 @@ class feedback:
    async def run(self,proc):
       from machine import Timer
       self.callback = proc
-      asyncio.sleep(0)
 
       # Initialized.  Fall into processing loop.
       # Debouncing of channel signal is handled two ways:
