@@ -295,12 +295,19 @@ source to run the board and the RPP.  It does not matter which USB connection
 you use: either of the connectors on the RPP or the CAN board will
 run them both.  Only the RPP's USB connection will talk to **rshell** though.
 
+## Using the Hub with JMRI
+
+In the `Preferences->Connections` panel, press the `+` button to add the hub.
+Choose **Marklin** as the `System manufacturer`, and **CS2 via network** as the
+`System connection`.  Fill in the `IP Address/Host Name` field with either the
+hub's IP address or DNS name (if your network provides it).
+
 ## Additional features
 
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/feedback.jpg?raw=true)
 
-The hub also provides a small number of feedback pathways to the train
-controller software like Rocrail.  It is equivalent to a Märklin S88+L88
+The hub also provides a small number of feedback pathways to train
+controller software like Rocrail or JMRI.  It is equivalent to a Märklin S88+L88
 connected to a CS2/CS3 controller (but with only 8 feedback paths).
 Each feedback path is activated by shorting one of the RPP pins to ground.
 The simulated S88 node ID is 1, and contacts 0-7 are available:
@@ -327,6 +334,8 @@ Track voltages (~18V) will damage or destroy the RPP and CAN board.
 Be sure that you understand how your feedback devices operate before using
 this feature.**
 
+### Rocrail
+
 Follow these steps to connect your feedback paths to Rocrail.
 In Rocrail's `Trackplan -> Edit` panel, select the type of and place for your
 feedback sensor.
@@ -352,6 +361,28 @@ open the `Properties` menu.  Under the `Sensors` tab, you'll find a `Poll at Sta
 the `Modules` fields have the value `1`.  `OK` will save the setup request.
 
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/snsr-3.jpg?raw=true)
+
+### JMRI
+
+JMRI sensors are tied to blocks, so you must make one of your track segments
+into a block.  In JMRI's Layout Editor, control-click on the segment and
+navigate to the `Edit` option in the pop-up menu.
+
+![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/JMRI-dialog1.png?raw=true)
+
+In the `Edit Track Segment`
+dialog box that opens, give the segment a block name (here, `LB1`).  Then press
+`Create/Edit Block`.
+
+![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/JMRI-dialog2.png?raw=true)
+
+In the `Edit Block LB1` panel that opens, choose the `Sensor` tab.
+
+![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/JMRI-dialog3.png?raw=true)
+
+The feedback channels from the hub will have names
+like, `MS1:00`, `MS1:01`, etc. for hub channels 0, 1, etc.  Default values
+for the other settings should be OK. 
 
 ## Operational notes
 
