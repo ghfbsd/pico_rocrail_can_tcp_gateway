@@ -297,6 +297,8 @@ run them both.  Only the RPP's USB connection will talk to **rshell** though.
 
 ## Using the Hub with JMRI
 
+![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/JMRI-control.png?raw=true)
+
 In the `Preferences->Connections` panel, press the `+` button to add the hub.
 Choose **Marklin** as the `System manufacturer`, and **CS2 via network** as the
 `System connection`.  Fill in the `IP Address/Host Name` field with either the
