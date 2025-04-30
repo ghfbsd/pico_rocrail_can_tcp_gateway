@@ -297,6 +297,11 @@ run them both.  Only the RPP's USB connection will talk to **rshell** though.
 
 ## Using the Hub with JMRI
 
+JMRI releases prior to 5.11 only work with the UDP protocol; make sure that
+you copied `UDP-CAN.py` to `/pyboard/main.py` on the RPP hub before starting it.
+Releases 5.11 (predicted release date is June 2025) and higher will work with
+TCP.
+
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/JMRI-control.png?raw=true)
 
 In the `Preferences->Connections` panel, press the `+` button to add the hub.
