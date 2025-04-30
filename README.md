@@ -378,12 +378,12 @@ navigate to the `Edit` option in the pop-up menu.
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/JMRI-dialog1.png?raw=true)
 
 In the `Edit Track Segment`
-dialog box that opens, give the segment a block name (here, `LB1`).  Then press
+dialog box that opens, give the segment a block name (here, `LB`).  Then press
 `Create/Edit Block`.
 
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/JMRI-dialog2.png?raw=true)
 
-In the `Edit Block LB1` panel that opens, choose the `Sensor` tab.
+In the `Edit Block LB` panel that opens, choose the `Sensor` tab.
 
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/JMRI-dialog3.png?raw=true)
 
