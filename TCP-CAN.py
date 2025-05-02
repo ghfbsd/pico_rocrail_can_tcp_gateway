@@ -328,12 +328,14 @@ class feedback:
       #    whether the pin state changed.  If the pin changes in this interval,
       #    it is only recognized if it results in a change in state.
 
+      self.timer = self.n*[None]
       while True:
          await self.flag.wait()
          pps = 0
          for i in range(self.n):
             if self.state[i] != self.chn[i] and not self.ptmr[i]:
-               machine.Timer().init(# Check state later
+               if self.timer[i] is None: self.timer[i] = machine.Timer()
+               self.timer[i].init(# Check state later
                   mode=Timer.ONE_SHOT,
                   period=SETTLE_TIME,
                   callback=lambda t, ch=i: self._check(ch)
