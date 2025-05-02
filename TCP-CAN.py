@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 29 Apr. 2025
+# last revision 2 May 2025
 
-_VER = const('PR295')            # version ID
+_VER = const('AY025')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -221,6 +221,7 @@ class feedback:
       self.fbpin = self.n*[None]      # Feedback pins
       self.chn = bytearray(self.n)    # Current contact level
       self.state = bytearray(self.n)  # Internal contact state
+      self.pins = pins                # Save pin layout for reset
 
       self.flag = asyncio.ThreadSafeFlag()
 
@@ -329,7 +330,7 @@ class feedback:
 
       while True:
          await self.flag.wait()
-         val = 0
+         pps = 0
          for i in range(self.n):
             if self.state[i] != self.chn[i] and not self.ptmr[i]:
                machine.Timer().init(# Check state later
@@ -338,8 +339,25 @@ class feedback:
                   callback=lambda t, ch=i: self._check(ch)
                )
                self.ptmr[i] = 1
-               val |= 1 << i
-         self.fbpp[11] = val     # Maintain state in poll packet
+            pps |= self.state[i] << i
+         self.fbpp[11] = pps     # Maintain state in poll packet
+
+   def reset(self):
+      pps = 0                    # Poll packet state
+      for ch, pin in self.pins:
+         self.fbpin[ch] = Pin(pin, Pin.IN, Pin.PULL_UP)
+         if feedback.interrupt: self.fbpin[ch].irq(
+            # this defines the interrupt handler
+               trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING,
+               handler=lambda p, id=ch: self._intr(id),
+               hard=True
+            )
+
+         val = not self.fbpin[ch].value()  # Get present pin state to initialize
+         self.chn[ch], self.state[ch] = val, val
+         pps |= val << ch
+         self.ptmr[ch] = 0       # Unblock any timers
+      self.fbpp[11] = pps        # Update poll packet state
 
    @property
    def state_packet(self):       # provide state packet
@@ -420,13 +438,16 @@ async def TCP_READER():
       await debugQUE.put(buf)
       ixDB += 1
 
-      #  Check for S88 state poll
+      #  Quick command parse for special responses
       cmd = int.from_bytes(pkt[0:2]) >> 1 & 0xff
       sub = int(pkt[9]) if pkt[4] > 4 else -1
-      if cmd == 0x10 and sub == NODE_ID:
-         fbpp = fdbk.state_packet
+      rsp = pkt[1] & 0x01
+      if cmd == 0x10 and sub == NODE_ID and not rsp:
+         fbpp = fdbk.state_packet # Check for S88 state poll
          await CANtoTCP.put(fbpp)
          await debugQUE.put(fbpp)
+      if cmd == 0x00 and sub == 0x01 and not rsp:
+         fdbk.reset()            # Reset feedback on power-on
 
 can = iCAN(_CANBOARD)
 async def CAN_READER():
