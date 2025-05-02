@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 09 Mar. 2025
-# last revision 29 Apr. 2025
+# last revision 2 May 2025
 
-_VER = const('PR295')            # version ID
+_VER = const('AY025')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -329,19 +329,21 @@ class feedback:
       #    whether the pin state changed.  If the pin changes in this interval,
       #    it is only recognized if it results in a change in state.
 
+      self.timer = self.n*[None]
       while True:
          await self.flag.wait()
-         val = 0
+         pps = 0
          for i in range(self.n):
             if self.state[i] != self.chn[i] and not self.ptmr[i]:
-               Timer().init(# Check state later
+               if self.timer[i] is None: self.timer[i] = Timer()
+               self.timer[i].init(# Check state later
                   mode=Timer.ONE_SHOT,
                   period=SETTLE_TIME,
                   callback=lambda t, ch=i: self._check(ch)
                )
                self.ptmr[i] = 1
-               val |= 1 << i
-         self.fbpp[11] = val     # Maintain state in poll packet
+            pps |= self.state[i] << i
+         self.fbpp[11] = pps     # Maintain state in poll packet
 
    @property
    def state_packet(self):       # provide state packet
