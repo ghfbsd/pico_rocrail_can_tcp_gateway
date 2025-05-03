@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 09 Mar. 2025
-# last revision 2 May 2025
+# last revision 3 May 2025
 
-_VER = const('AY025')            # version ID
+_VER = const('AY035')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -47,49 +47,52 @@ class iCAN:                      # interrupt driven CAN message sniffer
    CAN_pins = namedtuple('CAN pins',
       ['INT_PIN','SPI_CS', 'SPI_SCK', 'SPI_MOSI', 'SPI_MISO', 'FBP', 'name']
    )
-   pins_JI = CAN_pins(
-      # These pin assignments are appropriate for a RB-P-CAN-485 Joy-IT board
-      name = 'Joy-IT',
-      INT_PIN = 20,                 # Interrupt pin for CAN board
-      SPI_CS = 17,
-      SPI_SCK = 18,
-      SPI_MOSI = 19,
-      SPI_MISO = 16,
-      FBP = [                       # Feedback pins
-         #   +---- channel number
-         #   |  +- GPIO pin number
-         #   |  |
-         #   v  v
-            (0, 0), (1, 1), (2, 8), (3, 9),
-            (4,10), (5,11), (6,14), (7,15)
-      ]
-   )
-   pins_WS = CAN_pins(
-      # These pin assignments are appropriate for a Waveshare Pico-CAN-B board
-      name = 'Waveshare',
-      INT_PIN = 21,                 # Interrupt pin for CAN board
-      SPI_CS = 5,
-      SPI_SCK = 6,
-      SPI_MOSI = 7,
-      SPI_MISO = 4,
-      FBP = [                       # Feedback pins
-         #   +---- channel number
-         #   |  +- GPIO pin number
-         #   |  |
-         #   v  v
-            (0, 0), (1, 1), (2, 2), (3, 3),
-            (4,10), (5,11), (6,12), (7,13)
-      ]
-   )
    boards = dict(
-      WS = pins_WS,
-      JI = pins_JI
+      JI = CAN_pins(
+         name = 'Joy-IT',        # These pin assignments are appropriate for
+                                 # a RB-P-CAN-485 Joy-IT board
+         INT_PIN = 20,           # Interrupt pin for CAN board
+         SPI_CS = 17,
+         SPI_SCK = 18,
+         SPI_MOSI = 19,
+         SPI_MISO = 16,
+         FBP = [                 # Feedback pins
+            #   +---- channel number
+            #   |  +- GPIO pin number
+            #   |  |
+            #   v  v
+               (0, 0), (1, 1), (2, 8), (3, 9),
+               (4,10), (5,11), (6,14), (7,15)
+         ]
+      ),
+      WS = CAN_pins(
+         name = 'Waveshare',     # These pin assignments are appropriate for a
+                                 # Waveshare Pico-CAN-B board
+         INT_PIN = 21,           # Interrupt pin for CAN board
+         SPI_CS = 5,
+         SPI_SCK = 6,
+         SPI_MOSI = 7,
+         SPI_MISO = 4,
+         FBP = [                 # Feedback pins
+            #   +---- channel number
+            #   |  +- GPIO pin number
+            #   |  |
+            #   v  v
+               (0, 0), (1, 1), (2, 2), (3, 3),
+               (4,10), (5,11), (6,12), (7,13)
+         ]
+      )
    )
 
    def __init__(self, conf=None):
       from machine import Pin, SPI
       from canbus import Can, CanError
       from canbus.internal import CAN_SPEED
+
+      try:
+         CanError.decode()       # Needed for CAN bus error reports
+      except:
+         raise RuntimeError("Update canbus module - new features used")
 
       if conf is None:
          raise RuntimeError("Need to provide CAN board type or 'auto'")
@@ -376,6 +379,19 @@ DBGmsg = const('''
                  ****************
 ''')
 
+def qput(pkt,queue,flag,msg):
+   # Code readability device to avoid many try/except indents
+   # Does synchronous put to a threadsafe queue and prints error message
+   # depending on whether a previous error already reported.
+   # Use flag arg idiomatically: FLAG = qput(pkt,queue,FLAG,msg)
+
+   try:
+      queue.put_sync(pkt)
+      return False
+   except:
+      if not flag: print(msg)
+      return True
+
 rrhash = 0
 
 async def UDP_READER(timeout=0):
@@ -402,35 +418,18 @@ async def UDP_READER(timeout=0):
          assert n == CS2_SIZE
          mem = memoryview(pkt)
          rrhash = int.from_bytes(mem[2:4])
-         try:
-            UDPtoCAN.put_sync(pkt)
-            qfUC = False
-         except:
-            if not qfUC: print(CANmsg)
-            qfUC = True
-         try:
-            debugQUE.put_sync(pkt)
-            qfDB = False
-         except:
-            if not qfDB: print(DBGmsg)
-            qfDB = True
+         qfUC = qput(pkt,UDPtoCAN,qfUC,CANmsg)
+         qfDB = qput(pkt,debugQUE,qfDB,DBGmsg)
+
          #  Check for S88 state poll
-         cmd = int.from_bytes(pkt[0:2]) >> 1 & 0xff
+         cmd = int.from_bytes(mem[0:2]) >> 1 & 0xff
          sub = int(pkt[9]) if pkt[4] > 4 else -1
-         if cmd == 0x10 and sub == NODE_ID:
+         rsp = pkt[1] & 0x01
+         if cmd == 0x10 and sub == NODE_ID and not rsp:
             fbpp = fdbk.state_packet
-            try:
-               CANtoUDP.put_sync(fbpp)
-               qfCU = False
-            except:
-               if not qfCU: print(UDPmsg)
-               qfCU = True
-            try:
-               debugQUE.put_sync(fbpp)
-               qfDB = False
-            except:
-               if not qfDB: print(DBGmsg)
-               qfDB = True
+            qfCU = qput(fbpp, CANtoUDP, qfCU, UDPmsg)
+            qfDB = qput(fbpp, debugQUE, qfDB, DBGmsg)
+
          npkt += 1
          continue
       await asyncio.sleep_ms(timeout)
@@ -453,9 +452,11 @@ def CAN_IN(msg, err):
       stat = can.intf.getStatus()     # Order matters: status first ...
       intr = can.intf.getInterrupts() # ...then interrupt reg
       errf = can.intf.getErrorFlags()
-      print('   >>>CAN read error<<< stat %02x intr %02x err %02x' %
-         (stat,intr,errf)
-      )
+      print('   >>>CAN read error<<< stat %02x %s intr %02x %s err %02x %s' % (
+         stat, CanError.decode(status=stat),
+         intr, CanError.decode(interrupt=intr),
+         errf, CanError.decode(error=errf)
+      ))
       return
 
    buf = cpkt[ccnt % QSIZE]      # process packet
@@ -467,18 +468,8 @@ def CAN_IN(msg, err):
    buf[5:5+msg.dlc] = msg.data
    buf[5+msg.dlc:CS2_SIZE] = (8-msg.dlc)*b'\x00'
 
-   try:
-      CANtoUDP.put_sync(buf)
-      qfCU = False
-   except:
-      if not qfCU: print(UDPmsg)
-      qfCU = True
-   try:
-      debugQUE.put_sync(buf)
-      qfDB = False
-   except:
-      if qfDB: print(DBGmsg)
-      qfDB = True
+   qfCU = qput(buf, CANtoUDP, qfCU, UDPmsg)
+   qfDB = qput(buf, debugQUE, qfDB, DBGmsg)
 
    ccnt += 1
 
@@ -494,7 +485,8 @@ async def UDP_WRITER():
          assert len(pkt) == CS2_SIZE
          s.sendto(pkt, ('255.255.255.255',CS2_SPORT))
 
-async def CAN_WRITER(MERR=5, MCNT=500):
+async def CAN_WRITER(MERR=2, MCNT=500):
+   from canbus import CanError
    async for pkt in UDPtoCAN:
       assert len(pkt) == CS2_SIZE
       cnt = 0
@@ -506,9 +498,10 @@ async def CAN_WRITER(MERR=5, MCNT=500):
          cnt += 1
          errf = can.intf.getErrorFlags() # Error Flag register
          if cnt <= MERR:
-            print('   >>>CAN write error<<< (err %02x)%s' % 
-               (errf, ' - quelling further reports' if cnt >= MERR else '')
-            )
+            print('   >>>CAN write error<<< (err %02x %s)%s' % (
+               errf, CanError.decode(error=errf),
+               ' - quelling further reports' if cnt >= MERR else ''
+            ))
          if errf & 0x30:         # TXBO/Bus-Off or TXEP/TX-Passive
             can.intf.clearErrorFlags(MERR=True)
          await asyncio.sleep_ms(10)
@@ -554,18 +547,8 @@ async def FEEDBACK():
 
    def post(pkt):                # Called for every change in state
       global qfCU, qfDB
-      try:
-         CANtoUDP.put_sync(pkt)
-         qfCU = False
-      except:
-         if not qfCU: print(UDPmsg)
-         qfCU = True
-      try:
-         debugQUE.put_sync(pkt)
-         qfDB = False
-      except:
-         if not qfDB: print(DBGmsg)
-         qfDB = True
+      qfCU = qput(pkt, CANtoUDP, qfCU, UDPmsg)
+      qfDB = qput(pkt, debugQUE, qfDB, DBGmsg)
 
    await fdbk.run(post)
 
