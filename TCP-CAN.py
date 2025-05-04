@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 2 May 2025
+# last revision 4 May 2025
 
-_VER = const('AY025')            # version ID
+_VER = const('AY045')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -344,23 +344,6 @@ class feedback:
             pps |= self.state[i] << i
          self.fbpp[11] = pps     # Maintain state in poll packet
 
-   def reset(self):
-      pps = 0                    # Poll packet state
-      for ch, pin in self.pins:
-         self.fbpin[ch] = Pin(pin, Pin.IN, Pin.PULL_UP)
-         if feedback.interrupt: self.fbpin[ch].irq(
-            # this defines the interrupt handler
-               trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING,
-               handler=lambda p, id=ch: self._intr(id),
-               hard=True
-            )
-
-         val = not self.fbpin[ch].value()  # Get present pin state to initialize
-         self.chn[ch], self.state[ch] = val, val
-         pps |= val << ch
-         self.ptmr[ch] = 0       # Unblock any timers
-      self.fbpp[11] = pps        # Update poll packet state
-
    @property
    def state_packet(self):       # provide state packet
       return self.fbpp
@@ -396,6 +379,19 @@ DBGmsg = const('''
                  ***log q full***
                  ****************
 ''')
+
+def qput(pkt,queue,flag,msg):
+   # Code readability device to avoid many try/except indents
+   # Does synchronous put to a threadsafe queue and prints error message
+   # depending on whether a previous error already reported.
+   # Use flag arg idiomatically: FLAG = qput(pkt,queue,FLAG,msg)
+
+   try:
+      queue.put_sync(pkt)
+      return False
+   except:
+      if not flag: print(msg)
+      return True
 
 async def TCP_SERVER(R, W):
    # Callback when RocRail client connects to us
@@ -448,8 +444,6 @@ async def TCP_READER():
          fbpp = fdbk.state_packet # Check for S88 state poll
          await CANtoTCP.put(fbpp)
          await debugQUE.put(fbpp)
-      if cmd == 0x00 and sub == 0x01 and not rsp:
-         fdbk.reset()            # Reset feedback on power-on
 
 can = iCAN(_CANBOARD)
 async def CAN_READER():
@@ -481,22 +475,12 @@ def CAN_IN(msg, err, buf=bytearray(CS2_SIZE)):
    buf[5+msg.dlc:CS2_SIZE] = (8-msg.dlc)*b'\x00'
    pkt = CtoT[ixCT % QSIZE]
    pkt[0:CS2_SIZE] = buf
-   try:
-      CANtoTCP.put_sync(pkt)     # put_sync because no await used
-      qfCT = False
-      ixCT += 1
-   except:
-      if not qfCT: print(TCPmsg)
-      qfCT = True
+   qfCT = qput(pkt, CANtoTCP, qfCT, TCPmsg)
+   ixCT += 1
    pkt = DBQ[ixDB % QSIZE]
    pkt[0:CS2_SIZE] = buf
-   try:
-      debugQUE.put_sync(pkt)     # put_sync because no await used
-      qfDB = False
-      ixDB += 1
-   except:
-      if not qfDB: print(DBGmsg)
-      qfDB = True
+   qfDB = qput(pkt, debugQUE, qfDB, DBGmsg)
+   ixDB += 1
 
 async def TCP_WRITER():
    global TCP_W, TCP_WERR
@@ -576,18 +560,8 @@ async def FEEDBACK():
 
    def post(pkt):                # Called for every change in state
       global qfCT, qfDB
-      try:
-         CANtoTCP.put_sync(pkt)
-         qfCT = False
-      except:
-         if not qfCT: print(TCPmsg)
-         qfCT = True
-      try:
-         debugQUE.put_sync(pkt)
-         qfDB = False
-      except:
-         if not qfDB: print(DBGmsg)
-         qfDB = True
+      qfCT = qput(pkt, CANtoTCP, qfCT, TCPmsg)
+      qfDB = qput(pkt, debugQUE, qfDB, DBGmsg)
 
    await fdbk.run(post)
 
