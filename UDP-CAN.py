@@ -580,8 +580,6 @@ if not wlan.isconnected():
 else:
    host = wlan.config('hostname')
 wlan.config(pm=wlan.PM_NONE)     # disable power management on chip
-UID = wlan.config('mac')[2:6]    # UID is low 4 bytes of MAC address
-#UID = bytes((0,0,0,NODE_ID))     # UID is NODE_ID
 
 while not wlan.isconnected():
    # Fast flash while waiting for wifi connection; boot button restarts.
