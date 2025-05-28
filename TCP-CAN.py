@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 4 May 2025
+# last revision 28 May 2025
 
-_VER = const('AY045')            # version ID
+_VER = const('AY285')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -32,11 +32,12 @@ import uasyncio as asyncio
 import network
 import sys
 from time import sleep
+from asyncio import Loop
+from machine import Pin, Timer
 
 from micropython import alloc_emergency_exception_buf as AEEB
 AEEB(100)                        # boilerplate for IRQ-level exception reporting
 
-from machine import Pin, Timer
 pico_led = Pin("LED", Pin.OUT)
 
 class iCAN:                      # interrupt driven CAN message sniffer
@@ -54,14 +55,10 @@ class iCAN:                      # interrupt driven CAN message sniffer
          SPI_SCK = 18,
          SPI_MOSI = 19,
          SPI_MISO = 16,
-         FBP = [                    # Feedback pins
-            #   +---- channel number
-            #   |  +- GPIO pin number
-            #   |  |
-            #   v  v
-               (0, 0), (1, 1), (2, 8), (3, 9),
-               (4,10), (5,11), (6,14), (7,15)
-         ]
+         FBP = bytes((              # Feedback pins
+              #0  1  2  3   4   5   6   7  channel number
+               0, 1, 8, 9, 10, 11, 14, 15 #GPIO pin number
+         ))
       ),
       WS = CAN_pins(
          name = 'Waveshare',        # These pin assignments are appropriate for
@@ -71,14 +68,10 @@ class iCAN:                      # interrupt driven CAN message sniffer
          SPI_SCK = 6,
          SPI_MOSI = 7,
          SPI_MISO = 4,
-         FBP = [                       # Feedback pins
-            #   +---- channel number
-            #   |  +- GPIO pin number
-            #   |  |
-            #   v  v
-               (0, 0), (1, 1), (2, 2), (3, 3),
-               (4,10), (5,11), (6,12), (7,13)
-         ]
+         FBP = bytes((              # Feedback pins
+              #0  1  2  3   4   5   6   7  channel number
+               0, 1, 2, 3, 10, 11, 12, 13 #GPIO pin number
+         ))
       )
    )
 
@@ -225,7 +218,8 @@ class feedback:
 
       self.flag = asyncio.ThreadSafeFlag()
 
-      for ch, pin in pins:
+      ch = 0
+      for pin in pins:
          self.fbpin[ch] = Pin(pin, Pin.IN, Pin.PULL_UP)
          if feedback.interrupt: self.fbpin[ch].irq(
             # this defines the interrupt handler
@@ -248,6 +242,7 @@ class feedback:
          pkt[7:9] = bytes((0,ch))
          pkt[9], pkt[10] = self.state[ch], self.chn[ch]
          pkt[11:13] = 2*b'\x00'
+         ch += 1
 
       # Build current state packet in response to an S88 POLL cmd
       val = 0
@@ -565,7 +560,10 @@ async def FEEDBACK():
 
    await fdbk.run(post)
 
-from asyncio import Loop
+async def RUNNER(ip):
+   srvr = await asyncio.start_server(TCP_SERVER,ip,CS2_PORT)
+   while True:
+      await asyncio.sleep(60)
 
 print('TCP <-> CAN packet hub (%s)' % _VER)
 try:
@@ -611,9 +609,10 @@ canw = asyncio.create_task(CAN_WRITER())
 dbug = asyncio.create_task(DEBUG_OUT())
 beat = asyncio.create_task(HEARTBEAT())
 feed = asyncio.create_task(FEEDBACK())
+runr = asyncio.create_task(RUNNER(ip))
 
 try:
-   Loop.run_until_complete(asyncio.start_server(TCP_SERVER,ip,CS2_PORT))
+   Loop.run_forever()
 except KeyboardInterrupt:
    can.stop()
    stats = fdbk.stats
