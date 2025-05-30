@@ -56,14 +56,10 @@ class iCAN:                      # interrupt driven CAN message sniffer
          SPI_SCK = 18,
          SPI_MOSI = 19,
          SPI_MISO = 16,
-         FBP = [                 # Feedback pins
-            #   +---- channel number
-            #   |  +- GPIO pin number
-            #   |  |
-            #   v  v
-               (0, 0), (1, 1), (2, 8), (3, 9),
-               (4,10), (5,11), (6,14), (7,15)
-         ]
+         FBP = bytes((              # Feedback pins
+              #0  1  2  3   4   5   6   7  channel number
+               0, 1, 8, 9, 10, 11, 14, 15 #GPIO pin number
+         ))
       ),
       WS = CAN_pins(
          name = 'Waveshare',     # These pin assignments are appropriate for a
@@ -73,14 +69,10 @@ class iCAN:                      # interrupt driven CAN message sniffer
          SPI_SCK = 6,
          SPI_MOSI = 7,
          SPI_MISO = 4,
-         FBP = [                 # Feedback pins
-            #   +---- channel number
-            #   |  +- GPIO pin number
-            #   |  |
-            #   v  v
-               (0, 0), (1, 1), (2, 2), (3, 3),
-               (4,10), (5,11), (6,12), (7,13)
-         ]
+         FBP = bytes((              # Feedback pins
+              #0  1  2  3   4   5   6   7  channel number
+               0, 1, 2, 3, 10, 11, 12, 13 #GPIO pin number
+         ))
       )
    )
 
@@ -228,7 +220,8 @@ class feedback:
 
       self.flag = asyncio.ThreadSafeFlag()
 
-      for ch, pin in pins:
+      ch = 0
+      for pin in pins:
          self.fbpin[ch] = Pin(pin, Pin.IN, Pin.PULL_UP)
          if feedback.interrupt: self.fbpin[ch].irq(
             # this defines the interrupt handler
@@ -251,6 +244,7 @@ class feedback:
          pkt[7:9] = bytes((0,ch))
          pkt[9], pkt[10] = self.state[ch], self.chn[ch]
          pkt[11:13] = 2*b'\x00'
+         ch += 1
 
       # Build current state packet in response to an S88 POLL cmd
       val = 0
