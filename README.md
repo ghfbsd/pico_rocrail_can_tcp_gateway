@@ -102,6 +102,8 @@ Start **rshell** and connect to the RPP to test the CAN interface board.
 Try the `can_test_intr.py` in the
 [RB-P-CAN-485 repository](https://github.com/ghfbsd/RB-P-CAN-485)
 to verify that it is working properly.
+(If you don't see any FAIL messages after about 8 cycles, you can assume that
+everything is OK.)
 
 ### Download more software
 
