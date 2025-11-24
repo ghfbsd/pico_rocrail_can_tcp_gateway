@@ -13,7 +13,7 @@
 # 16 Jan. 2025
 # last revision 28 May 2025
 
-_VER = const('AY285')            # version ID
+_VER = const('OV245')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -405,7 +405,8 @@ async def TCP_READER():
    #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
    #    -----------  --  -----------------------
    #       CAN ID    len  data (left justified)
-   global TCP_R, TCP_RERR, rrhash, ixTC, ixDB
+   global TCP_R, TCP_RERR, rrhash, ixTC, ixDB, ixCT
+
    while True:                   # Wait for connection
       if TCP_R is None:
          await asyncio.sleep_ms(10)
@@ -436,9 +437,15 @@ async def TCP_READER():
       sub = int(pkt[9]) if pkt[4] > 4 else -1
       rsp = pkt[1] & 0x01
       if cmd == 0x10 and sub == NODE_ID and not rsp:
-         fbpp = fdbk.state_packet # Check for S88 state poll
-         await CANtoTCP.put(fbpp)
-         await debugQUE.put(fbpp)
+         fbpp = copy.copy(fdbk.state_packet) # Check for S88 state poll
+         buf = CtoT[ixCT % QSIZE]
+         buf[0:CS2_SIZE] = fbpp
+         await CANtoTCP.put(buf)
+         ixCT += 1
+         buf = DBQ[ixDB % QSIZE]
+         buf[0:CS2_SIZE] = fbpp
+         await debugQUE.put(buf)
+         ixDB += 1
 
 can = iCAN(_CANBOARD)
 async def CAN_READER():
