@@ -312,6 +312,30 @@ Choose **Marklin** as the `System manufacturer`, and **CS2 via network** as the
 `System connection`.  Fill in the `IP Address/Host Name` field with either the
 hub's IP address or DNS name (if your network provides it).
 
+## Using the Hub with BTrain
+
+BTrain assumes that you have a Marklin CS3 attached, rather than just a
+Gleisbox.
+In order to make it work you need to install a modified version of the code
+(it will be available in future among this user's github repositories).
+Assuming you somehow got it, the code as of now (Nov. 2025) only works with
+the MS2 attached.
+
+You define a layout and then a locomotive (it does not matter which one; you're
+going to have to accept that the icon won't match your loco).
+Start operations by toggling the `Connect` button at top right.
+This will open up a dialog box; make sure `Connect To:` says `Central Station`
+and fill in `Address:` with the IP number of the hub (or the hub's host name if
+your wifi router provides it).  After you connect, you should be ready.
+
+![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/BTrain-start.jpg?raw=true)
+
+To run anything, you need to have a basic layout defined, and feedback points
+defined for each block.  (The feedback does not have to be actively working,
+just defined.)  After your layout passes BTrain's sanity tests, you can run
+locos manually.  Automatic train operation is possible once you get feedback
+fully working for each block.
+
 ## Additional features
 
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/feedback.jpg?raw=true)
@@ -393,6 +417,15 @@ In the `Edit Block LB` panel that opens, choose the `Sensor` tab.
 The feedback channels from the hub will have names
 like, `MS1:00`, `MS1:01`, etc. for hub channels 0, 1, etc.  Default values
 for the other settings should be OK. 
+
+### BTrain
+
+BTrain sensors have labels f1, f2, ... (but may be changed).
+They are set up through the View -> Feedbacks menu.
+Click on `+` at the bottom to add a new one.
+The hub's module number (1) so make `Device ID` = 1.  Contacts start being
+numbered from zero.  There is a handy feature whereby you can active a feedback
+and it will capture the `Device ID` and `Contact` itself.
 
 ## Operational notes
 
