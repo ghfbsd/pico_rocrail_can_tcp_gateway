@@ -122,7 +122,7 @@ def decode(ID,data,detail=False) -> str:
       if sub == 0x06:        # ACCESSORY SWITCH TIME
          if dlen != 7:
             mess += ' ACCESSORY SWITCHING TIME 00/06 (%s): garbled' % (
-               data[0:4].hex(),
+               data[0:4].hex()
             )
             return mess
          mess += ' ACCESSORY SWITCH TIME 00/06 (%s): %d ms' % (
@@ -132,7 +132,7 @@ def decode(ID,data,detail=False) -> str:
       if sub == 0x08:        # PROTOCOL AVAILABILITY
          if dlen != 6:
             mess += ' PROTOCOL AVAILABILITY 00/08 (%s): garbled' % (
-               data[0:4].hex(),
+               data[0:4].hex()
             )
             return mess
          mess += ' PROTOCOL AVAILABILITY 00/08 (%s):' % data[0:4].hex()
@@ -143,7 +143,7 @@ def decode(ID,data,detail=False) -> str:
       if sub == 0x09:        # MFX NEW REGISTRATION COUNTER
          if dlen != 7:
             mess += ' MFX NEW REG COUNTER 00/09 (%s): garbled' % (
-               data[0:4].hex(),
+               data[0:4].hex()
             )
             return mess
          mess += ' MFX NEW REG COUNTER 00/09 (%s): %d' % (
@@ -153,7 +153,7 @@ def decode(ID,data,detail=False) -> str:
       if sub == 0x0a:        # OVERLOAD
          if dlen != 6:
             mess += ' OVERLOAD! 00/0A (%s): garbled' % (
-               data[0:4].hex(),
+               data[0:4].hex()
             )
             return mess
          mess += ' OVERLOAD! 00/0A (%s): channel %d' % (
@@ -189,7 +189,7 @@ def decode(ID,data,detail=False) -> str:
             )
             return mess
          mess += ' STATUS 00/0B (%s): garbled' % (
-            data[0:4].hex(),
+            data[0:4].hex()
          )
          return mess
       if sub == 0x0c:        # DEVICE ID
@@ -322,7 +322,7 @@ def decode(ID,data,detail=False) -> str:
          int.from_bytes(data[4:6]) & 0x3ff
       )
       if rng >= 0x40 and rng <= 0x7f: # MFX check
-         mess += 'MFX CV index %d ' % int(data[4]) >> 2 & 0x3f
+         mess += 'MFX CV index %d ' % (int(data[4]) >> 2 & 0x3f)
       mess += 'value %d 0x%02x, write %s verify %s' % (
          int(data[6]), int(data[6]),
          'OK' if data[7] & 0x80 else 'ERROR',
