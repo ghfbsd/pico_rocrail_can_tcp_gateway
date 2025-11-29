@@ -8,9 +8,9 @@
 #          or Pico-CAN-B board by Waveshare (https://www.waveshare.com)
 
 # original version 15 Jan. '25
-# last revision 27 Apr. '25
+# last revision 29 Nov. '25
 
-_VER = 'PR275'                   # version ID
+_VER = 'OV295'                   # version ID
 
 CS2_SIZE = const(13)             # Fixed by protocol definition
 
@@ -173,10 +173,12 @@ def sniffer(msg, err):
 async def DEBUG_OUT():
    async for buf in debugQUE:
       assert len(buf) == CS2_SIZE
-      data = '%04x %04x %02x %s' % (
+      cmd = (int.from_bytes(buf[0:2]) >> 1) & 0x7f
+      data = '%04x %04x %02x %s (%02x%s)' % (
          int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
          buf[4],
-         ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4)))
+         ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4))),
+         cmd, '' if cmd != 0 else ('/%02x' % buf[9])
       )
       print(data)
       if avail:
