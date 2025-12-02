@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 28 May 2025
+# last revision 02 Dec 2025
 
-_VER = const('OV245')            # version ID
+_VER = const('EC035')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -24,7 +24,7 @@ CS2_SIZE = const(13)             # Fixed by protocol definition
 QSIZE = const(25)                # Size of various I/O queues (overkill)
 
 NODE_ID = const(1)               # "S88" node ID
-SETTLE_TIME = const(125)         # "S88" contact settle time (ms)
+SETTLE_TIME = const(65)          # "S88" contact settle time (ms) (was 125)
 
 _CANBOARD = const('auto')        # Board choice: 'auto' for auto-detect or
                                  # 'JI' or 'WS'
