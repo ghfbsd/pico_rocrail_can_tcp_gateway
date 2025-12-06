@@ -422,9 +422,10 @@ for the other settings should be OK.
 BTrain sensors have labels f1, f2, ... (but may be changed).
 They are set up through the View -> Feedbacks menu.
 Click on `+` at the bottom to add a new one.
-The hub's module number (1) so make `Device ID` = 1.  Contacts start being
-numbered from zero.  There is a handy feature whereby you can active a feedback
-and it will capture the `Device ID` and `Contact` itself.
+The hub's module number is 1, so make `Device ID` = 1.  Contacts start being
+numbered from zero.  There is a handy feature (under the "☈" button) whereby
+you can activate a feedback and it will capture the `Device ID` and `Contact`
+itself.
 
 ## Operational notes
 
