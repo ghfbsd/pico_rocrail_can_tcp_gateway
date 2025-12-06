@@ -11,7 +11,7 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 02 Dec 2025
+# last revision 03 Dec 2025
 
 _VER = const('EC035')            # version ID
 
@@ -201,7 +201,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
 class feedback:
    # Implement feedback by logic-level input from track sensors
 
-   interrupt = False                  # True for interrupt or False for poll
+   interrupt = True                   # True for interrupt or False for poll
 
    def __init__(self,node,pins):
       myhash = 0x5338
@@ -527,10 +527,12 @@ async def DEBUG_OUT():
    global rrhash, dec
    async for buf in debugQUE:
       assert len(buf) == CS2_SIZE
-      data = '%04x %04x %02x %s' % (
+      cmd = (int.from_bytes(buf[0:2]) >> 1) & 0x7f
+      data = '%04x %04x %02x %s (%02x%s)' % (
          int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
          buf[4],
-         ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4)))
+         ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4))),
+         cmd, '' if cmd != 0 else ('/%02x' % buf[9])
       )
       cid = int.from_bytes(buf[2:4])
       if cid == rrhash:

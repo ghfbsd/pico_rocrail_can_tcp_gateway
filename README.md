@@ -23,10 +23,9 @@ protocol over wires connecting the various Märklin boxes.
 This same protocol is used by popular train control software, in particular
 [Rocrail](https://wiki.rocrail.net/doku.php?id=start),
 [iTrain](https://www.berros.eu/en/itrain/),
-[TrainController](https://www.freiwald.com/pages/traincontroller.htm), and
-[JMRI](https://www.jmri.org).
-In future, it may be made to work with
-[BTrain](https://github.com/jean-bovet/BTrain), too.
+[TrainController](https://www.freiwald.com/pages/traincontroller.htm),
+[JMRI](https://www.jmri.org), and
+[BTrain](https://github.com/ghfbsd/BTrain).
 
 ## Requirements
 
