@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 03 Dec 2025
+# last revision  3 Jan 2026
 
-_VER = const('EC035')            # version ID
+_VER = const('AN036')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -423,7 +423,19 @@ async def TCP_READER():
 
       assert len(pkt) == CS2_SIZE
       rrhash = int.from_bytes(pkt[2:4])
-      buf = TtoC[ixTC % QSIZE]
+
+      #  Quick command parse for special responses
+      cmd = int.from_bytes(pkt[0:2]) >> 1 & 0xff
+      sub = int(pkt[9]) if pkt[4] > 4 else -1
+      rsp = pkt[1] & 0x01
+
+      if cmd == 0x1b and not rsp:     # CAN BOOT?
+         while not CANtoTCP.empty():
+            CANtoTCP.get_sync()       # discard any queued responses
+         while not debugQUE.empty():
+            debugQUE.get_sync()       # discard any queued responses
+
+      buf = TtoC[ixTC % QSIZE]   # Normal handling 
       buf[0:CS2_SIZE] = pkt
       await TCPtoCAN.put(buf)
       ixTC += 1
@@ -432,10 +444,6 @@ async def TCP_READER():
       await debugQUE.put(buf)
       ixDB += 1
 
-      #  Quick command parse for special responses
-      cmd = int.from_bytes(pkt[0:2]) >> 1 & 0xff
-      sub = int(pkt[9]) if pkt[4] > 4 else -1
-      rsp = pkt[1] & 0x01
       if cmd == 0x10 and sub == NODE_ID and not rsp:
          fbpp = copy.copy(fdbk.state_packet) # Check for S88 state poll
          buf = CtoT[ixCT % QSIZE]
