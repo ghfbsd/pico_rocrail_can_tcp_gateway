@@ -313,12 +313,9 @@ hub's IP address or DNS name (if your network provides it).
 
 ## Using the Hub with BTrain
 
-BTrain assumes that you have a Marklin CS3 attached, rather than just a
-Gleisbox.
-In order to make it work you need to install a modified version of the code
-(it will be available in future among this user's github repositories).
-Assuming you somehow got it, the code as of now (Nov. 2025) only works with
-the MS2 attached.
+BTrain assumes that you have a Marklin CS3 attached, rather than a Gleisbox.
+In order to make BTrain work you need to install a modified version of the code
+(available in this user's [github repository](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/complete.jpg)).  Compile the app, then run it.  Under the `BTrain->Settings` menu item, tick the `Gleisbox only` option and you're set.
 
 You define a layout and then a locomotive (it does not matter which one; you're
 going to have to accept that the icon won't match your loco).
@@ -340,7 +337,7 @@ fully working for each block.
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/feedback.jpg?raw=true)
 
 The hub also provides a small number of feedback pathways to train
-controller software like Rocrail or JMRI.  It is equivalent to a Märklin S88+L88
+controller software like Rocrail, JMRI or BTrain.  It is equivalent to a Märklin S88+L88
 connected to a CS2/CS3 controller (but with only 8 feedback paths).
 Each feedback path is activated by shorting one of the RPP pins to ground.
 The simulated S88 node ID is 1, and contacts 0-7 are available:
