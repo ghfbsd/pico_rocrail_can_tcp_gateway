@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision  3 Jan 2026
+# last revision 18 Jan 2026
 
-_VER = const('AN036')            # version ID
+_VER = const('AN186')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -21,7 +21,7 @@ PASS = "****"
 CS2_PORT = const(15731)          # Marklin diktat
 CS2_SIZE = const(13)             # Fixed by protocol definition
 
-QSIZE = const(25)                # Size of various I/O queues (overkill)
+QSIZE = const( 3)                # Size of various I/O queues (overkill)
 
 NODE_ID = const(1)               # "S88" node ID
 SETTLE_TIME = const(65)          # "S88" contact settle time (ms) (was 125)
@@ -201,7 +201,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
 class feedback:
    # Implement feedback by logic-level input from track sensors
 
-   interrupt = True                   # True for interrupt or False for poll
+   interrupt = False                  # True for interrupt or False for poll
 
    def __init__(self,node,pins):
       myhash = 0x5338
@@ -216,6 +216,7 @@ class feedback:
       self.state = bytearray(self.n)  # Internal contact state
       self.pins = pins                # Save pin layout for reset
 
+      self.wflag = asyncio.ThreadSafeFlag()
       self.flag = asyncio.ThreadSafeFlag()
 
       ch = 0
@@ -265,63 +266,26 @@ class feedback:
          period=1000,
          callback=self._tick
       )
-      if not feedback.interrupt:
-         # defines polling task if not interrupt-driven
-         try:
-            self.task = asyncio.create_task(self._poll())
-         except CancelledError:
-            pass
 
-   def _tick(self,arg):          # Seconds counter
-      self._secs += 1
+      # defines pin change timer (if interrupt) or polling task
+      try:
+         self.task = asyncio.create_task(
+            self._time() if feedback.interrupt else self._poll()
+         )
+      except CancelledError:
+         pass
 
-   async def _poll(self):        # Polling routine
-      while True:
-         self._n += 1
-         for n in range(self.n):
-            self.chn[n] = not self.fbpin[n].value()
-            if self.state[n] != self.chn[n]:
-               self.flag.set()
-         await asyncio.sleep_ms(SETTLE_TIME)
 
-   def _intr(self,pin):          # Interrupt handler
-      self._n += 1
-      self.chn[pin] = not self.fbpin[pin].value()
-      if self.chn[pin] != self.state[pin]:
-         self.flag.set()         # Signal waiting task in run()
-
-   def _check(self,pin):
-      # Activated after change of state of feedback channel by the timer
-
-      val = not self.fbpin[pin].value()  # Current channel state
-      if self.state[pin] != val:    # Internal state same as present pin state?
-         self.chn[pin] = val        # No - generate a feedback event
-         pkt = self.pool[pin]
-         pkt[9], pkt[10] = self.state[pin], self.chn[pin]
-         self.callback(pkt)         # Invoke callback with packet
-      self.ptmr[pin] = 0            # Handled channel, schedule next timer
-      self.state[pin] = self.chn[pin]
-
-   def stop(self):
-      self.ticker.deinit()
-      if feedback.interrupt:
-         for i in range(self.n): self.fbpin[i].irq(handler=None)
-      else:
-         try:
-            self.task.cancel()
-         except:
-            pass
-      
-   async def run(self,proc):
-      self.callback = proc
+   async def _time(self):        # Wait for feedback pin change
 
       # Initialized.  Fall into processing loop.
       # Debouncing of channel signal is handled two ways:
-      # 1) in interrupt routine, flag raised only if there is a state change on
-      #    the pin; similarly in the poll routine.
-      # 2) after a state change, a timer is set for a SETTLE_TIME delay to see
-      #    whether the pin state changed.  If the pin changes in this interval,
-      #    it is only recognized if it results in a change in state.
+      # 1) in interrupt routine, flag raised only if there is a state
+      #    change on the pin; similarly in the poll routine.
+      # 2) after a state change, a timer is set for a SETTLE_TIME delay to
+      #    see whether the pin state changed.  If the pin changes in this
+      #    interval, it is only recognized if it results in a change in
+      #    state.
 
       self.timer = self.n*[None]
       while True:
@@ -339,6 +303,49 @@ class feedback:
             pps |= self.state[i] << i
          self.fbpp[11] = pps     # Maintain state in poll packet
 
+   def _tick(self,arg):          # Seconds counter
+      self._secs += 1
+
+   async def _poll(self):        # Polling routine
+      while True:
+         self._n += 1
+         pps = 0
+         for n in range(self.n):
+            self.chn[n] = not self.fbpin[n].value()
+            if self.state[n] != self.chn[n]:
+               self.wflag.set()
+            pps |= self.state[i] << i
+         self.fbpp[11] = pps     # Maintain state in poll packet
+         await asyncio.sleep_ms(SETTLE_TIME)
+
+   def _intr(self,pin):          # Interrupt handler
+      self._n += 1
+      self.chn[pin] = not self.fbpin[pin].value()
+      if self.chn[pin] != self.state[pin]:
+         self.flag.set()         # Signal waiting task (interrupt; poll ignores)
+
+   def _check(self,pin):
+      # Activated after change of state of feedback channel by the timer
+
+      val = not self.fbpin[pin].value()  # Current channel state
+      if self.state[pin] != val:    # Internal state same as present pin state?
+         self.chn[pin] = val        # No - generate a feedback event
+         pkt = self.pool[pin]
+         pkt[9], pkt[10] = self.state[pin], self.chn[pin]
+         self.wflag.set()
+      else:
+         self.state[pin] = self.chn[pin]
+      self.ptmr[pin] = 0            # Handled channel, schedule next timer
+
+   def stop(self):
+      self.ticker.deinit()
+      if feedback.interrupt:
+         for i in range(self.n): self.fbpin[i].irq(handler=None)
+      try:
+         self.task.cancel()
+      except:
+         pass
+      
    @property
    def state_packet(self):       # provide state packet
       return self.fbpp
@@ -346,6 +353,23 @@ class feedback:
    @property
    def stats(self):              # provide interrupt stats
       return (self._n, self._secs)
+
+   def __aiter__(self):          # enable await for pkt in .... feature
+      return self
+
+   async def __anext__(self):    # return next pkt in for pkt in ....
+      while True:
+         await self.wflag.wait()
+         for n in range(self.n):
+            if self.state[n] != self.chn[n]:
+               break             # found a change
+         else:
+            continue             # no change? go wait on flag again
+         break                   # found a change
+      pkt = self.pool[n]
+      pkt[9], pkt[10] = self.state[n], self.chn[n]
+      self.state[n] = self.chn[n]
+      return pkt
 
 from threadsafe import ThreadSafeQueue
 
@@ -481,8 +505,9 @@ def CAN_IN(msg, err, buf=bytearray(CS2_SIZE)):
    buf[2] = msg.can_id >>  8 & 0xff 
    buf[3] = msg.can_id       & 0xff
    buf[4] = msg.dlc
-   buf[5:5+msg.dlc] = msg.data
+   buf[5:5+msg.dlc] = msg.data[0:msg.dlc]
    buf[5+msg.dlc:CS2_SIZE] = (8-msg.dlc)*b'\x00'
+
    pkt = CtoT[ixCT % QSIZE]
    pkt[0:CS2_SIZE] = buf
    qfCT = qput(pkt, CANtoTCP, qfCT, TCPmsg)
@@ -533,14 +558,24 @@ async def CAN_WRITER(MERR=5, MCNT=500):
 
 async def DEBUG_OUT():
    global rrhash, dec
+
+   #                  0               1
+   #                  0123456789ABCDEF0123456789ABCDEF
+   def mycode(ba, sp="□.........↲⤓↧⇤.................."):
+      str = ''
+      for b in ba:
+         str += sp[b] if b < 0x20 else ('.' if b > 0x7f else chr(b))
+      return str
+
    async for buf in debugQUE:
       assert len(buf) == CS2_SIZE
       cmd = (int.from_bytes(buf[0:2]) >> 1) & 0x7f
-      data = '%04x %04x %02x %s (%02x%s)' % (
+      data = '%04x %04x %02x %s (%02x%s) *%s*' % (
          int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
          buf[4],
          ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4))),
-         cmd, '' if cmd != 0 else ('/%02x' % buf[9])
+         cmd, '' if cmd != 0 else ('/%02x' % buf[9]),
+         mycode(buf[5:5+int(buf[4])])
       )
       cid = int.from_bytes(buf[2:4])
       if cid == rrhash:
@@ -575,7 +610,10 @@ async def FEEDBACK():
       qfCT = qput(pkt, CANtoTCP, qfCT, TCPmsg)
       qfDB = qput(pkt, debugQUE, qfDB, DBGmsg)
 
-   await fdbk.run(post)
+   async for pkt in fdbk:        # Wait for change in state of some feedback pin
+      global qfCT, qfDB
+      qfCT = qput(pkt, CANtoTCP, qfCT, TCPmsg)
+      qfDB = qput(pkt, debugQUE, qfDB, DBGmsg)
 
 async def RUNNER(ip):
    srvr = await asyncio.start_server(TCP_SERVER,ip,CS2_PORT)
