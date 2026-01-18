@@ -11,9 +11,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 09 Mar. 2025
-# last revision 3 May 2025
+# last revision 15 Jan 2026
 
-_VER = const('AY035')            # version ID
+_VER = const('AN156')            # version ID
 
 SSID = "****"
 PASS = "****"
@@ -459,7 +459,7 @@ def CAN_IN(msg, err):
    buf[2] = msg.can_id >>  8 & 0xff 
    buf[3] = msg.can_id       & 0xff
    buf[4] = msg.dlc
-   buf[5:5+msg.dlc] = msg.data
+   buf[5:5+msg.dlc] = msg.data[0:msg.dlc]
    buf[5+msg.dlc:CS2_SIZE] = (8-msg.dlc)*b'\x00'
 
    qfCU = qput(buf, CANtoUDP, qfCU, UDPmsg)
