@@ -14,7 +14,7 @@
 # 16 Jan. 2025
 # last revision 20 Jan 2026
 
-_VER = const('AN206')            # version ID
+_VER = const('AN206a')           # version ID
 
 ################################## Configuration variables start here...
 
@@ -32,7 +32,7 @@ CS2_RPORT = const(15731)         # Marklin diktat: UDP
 CS2_SPORT = const(15730)         # Marklin diktat: UDP
 CS2_SIZE = const(13)             # Fixed by protocol definition
 
-QSIZE = const(50)                # Size of various I/O queues (modest)
+QSIZE = const(100)               # Size of various I/O queues (modest)
 
 NODE_ID = const(1)               # "S88" node ID
 SETTLE_TIME = const(65)          # "S88" contact settle time (ms) (was 125)
