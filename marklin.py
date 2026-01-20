@@ -27,15 +27,25 @@ class CS2decoder:
       self.pfx = pfx
       self.print = print
 
+   def _CRC(self,byt,acc):
+      acc = (acc ^ (byt << 8)) & 0xffff
+      for i in range(8):
+         if acc & 0x8000 == 0x8000:
+            acc = (acc << 1) ^ 0x1021
+         else:
+            acc <<= 1
+         acc &= 0xffff
+      return acc
+
    def decode(self,ID,data):
 
       detail = self.detail
       comm = ID >> 17 & 0xff
       sub = data[4] if len(data) > 4 else -1
       resp = ID & 0x00010000
+      dlc = len(data)
 
       if comm == 0x00 and sub == 0x0b and resp and detail:
-         dlc = len(data)
          if resp and dlc != 8:
             return decode(ID, data, detail)
          chan = int(data[5])
@@ -49,6 +59,27 @@ class CS2decoder:
          mess = 'R' if resp else 'C'
          mess += ' SYSTEM STATUS 00/0B (channel %d)' % chan
          mess += ' %s %.2f%s' % (name, val, unit)
+      elif comm == 0x21 and detail:
+         mess = ('R' if resp else 'C') + ' CONFIG DATA STREAM'
+         if resp or dlc not in [7,8]:
+            mess += ' (garbled)'
+         if dlc == 7:
+            self.cnt = int.from_bytes(data[0:4],'big')
+            self.val = int.from_bytes(data[4:6],'big')
+            mess += ' (start: count %d, CRC %04x)' % (
+               self.cnt, self.val
+            )
+            self.txt, self.crc = '', 0xffff
+         elif dlc == 8:
+            for c in data:
+               self.crc = self._CRC(c,self.crc)
+            self.txt += data.decode('utf-8')
+            self.cnt -= 8
+
+            if self.cnt <= 0:
+               mess += ' (end)'
+               if self.val != self.crc or self.cnt != 0: mess += ' (garbled)'
+               mess += '  text:\n' + self.txt
       else:
          mess = decode(ID, data, detail)
 
@@ -323,11 +354,12 @@ def decode(ID,data,detail=False) -> str:
       )
       if rng >= 0x40 and rng <= 0x7f: # MFX check
          mess += 'MFX CV index %d ' % (int(data[4]) >> 2 & 0x3f)
-      mess += 'value %d 0x%02x, write %s verify %s' % (
-         int(data[6]), int(data[6]),
-         'OK' if data[7] & 0x80 else 'ERROR',
-         'OK' if data[7] & 0x40 else 'ERROR'
-      )
+      mess += 'value %d 0x%02x' % (int(data[6]), int(data[6]))
+      if resp == 'R':
+         mess += ', write %s verify %s' % (
+            'OK' if data[7] & 0x80 else 'ERROR',
+            'OK' if data[7] & 0x40 else 'ERROR'
+         )
       return mess
 
    if comm == 0x0b:          # ACCESSORIES
