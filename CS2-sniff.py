@@ -8,9 +8,9 @@
 #          or Pico-CAN-B board by Waveshare (https://www.waveshare.com)
 
 # original version 15 Jan. '25
-# last revision 15 Jan. '26
+# last revision 20 Jan. '26
 
-_VER = 'AN156'                    # version ID
+_VER = 'AN206'                    # version ID
 
 CS2_SIZE = const(13)              # Fixed by protocol definition
 
@@ -426,7 +426,7 @@ async def DEBUG_OUT():
 
    #                  0               1
    #                  0123456789ABCDEF0123456789ABCDEF
-   def mycode(ba, sp="□.........↲⤓↧⇤.................."):
+   def mycode(ba, sp="□.........↲↓↧⇤.................."):
       str = ''
       for b in ba:
          str += sp[b] if b < 0x20 else ('.' if b > 0x7f else chr(b))
