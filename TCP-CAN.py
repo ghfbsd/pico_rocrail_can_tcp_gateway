@@ -1,4 +1,5 @@
-# TCP - CAN bus hub, using PIO for SPI interactions to speed up CAN read/write
+# Wifi - CAN bus hub, using PIO for SPI interactions to speed up CAN read/write
+#    Uses either TCP or UDP over Wifi.
 
 # Copyright (c) 2025-2026 George Helffrich
 # Released under the MIT License (MIT) - see LICENSE file
@@ -11,23 +12,30 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 19 Jan 2026
+# last revision 20 Jan 2026
 
-_VER = const('AN196')            # version ID
+_VER = const('AN206')            # version ID
 
-SSID = "****"
-PASS = "****"
+################################## Configuration variables start here...
 
-CS2_PORT = const(15731)          # Marklin diktat
-CS2_SIZE = const(13)             # Fixed by protocol definition
-
-QSIZE = const( 5)                # Size of various I/O queues (modest)
-
-NODE_ID = const(1)               # "S88" node ID
-SETTLE_TIME = const(65)          # "S88" contact settle time (ms) (was 125)
+SSID = "****"                    # Wifi network ID
+PASS = "****"                    # Wifi network password
 
 _CANBOARD = const('auto')        # Board choice: 'auto' for auto-detect or
                                  # 'JI' or 'WS'
+_IPP = const('TCP')              # Protocol choice: TCP or UDP
+
+################################## Configuration variables ...end here
+
+CS2_PORT = const(15731)          # Marklin diktat: TCP
+CS2_RPORT = const(15731)         # Marklin diktat: UDP
+CS2_SPORT = const(15730)         # Marklin diktat: UDP
+CS2_SIZE = const(13)             # Fixed by protocol definition
+
+QSIZE = const(50)                # Size of various I/O queues (modest)
+
+NODE_ID = const(1)               # "S88" node ID
+SETTLE_TIME = const(65)          # "S88" contact settle time (ms) (was 125)
 
 INSTR_READ_STATUS = const(0xA0)  # PIO for fast reading of 250 kbps CAN bus
 INSTR_WRITE       = const(0x02)
@@ -44,6 +52,7 @@ MCP_TXB2          = const(0x50)
 
 import uasyncio as asyncio
 import network
+import usocket as socket
 import sys
 from time import sleep
 from asyncio import Loop
@@ -318,28 +327,29 @@ class iCAN:                      # interrupt driven CAN message sniffer
       intr=0
    ):
 
-      a_4 = self.a_4
+      if self.sflag: return       # Quick return if IRQ is busy
+      self.sflag = 1              # Raise IRQ busy semaphore
+
+      a_4 = self.a_4              # Set up local vars (optimize using locals)
       a_2 = self.a_2
       b_2 = self.b_2
       b_1 = self.b_1
-      if not self.sm.active():    # PIO not running?
-         return                   # .send() in progress, PIO will clash with SPI
-      if self.sflag: return       # Quick return if IRQ is busy
-      self.sflag = 1              # Raise IRQ busy semaphore
+      sm = self.sm
+      cque = self.cque
          
-      self.sm.put(                # GET INTERRUPT FLAGS
+      sm.put(                     # GET INTERRUPT FLAGS
          READ_CANINTF_CMD
       )
-      self.sm.get(b_1)
+      sm.get(b_1)
       stat = b_1[0]
       if stat & 0x20:             # Error of any sort?
-         self.sm.put(             # GET ERROR FLAGS
+         sm.put(                  # GET ERROR FLAGS
             READ_EFLG_CMD
          )
-         self.sm.get(b_1)
+         sm.get(b_1)
          qi = self.nque % iCAN.CQSIZE
          self.eelem[qi] = b_1[0]
-         self.cque.put_sync(qi)   # Queue error indication, interpret later
+         cque.put_sync(qi)        # Queue error indication, interpret later
          self.nque += 1
 
       while stat & 0x03:          # cycle while something to read?
@@ -347,40 +357,41 @@ class iCAN:                      # interrupt driven CAN message sniffer
          if stat & 0x01:          # ... in RX0
             qi = self.nque % iCAN.CQSIZE
             a_4[0] = READ_RX0_CMD
-            self.sm.put(a_4)      # READ RX0
-            self.sm.get(self.melem[qi])
+            sm.put(a_4)           # READ RX0
+            sm.get(self.melem[qi])
             self.eelem[qi] = 0x00 # No error
-            self.cque.put_sync(qi)
+            cque.put_sync(qi)
             self.nque += 1
 
          if stat & 0x02:          # ... in RX1
             qi = self.nque % iCAN.CQSIZE
             a_4[0] = READ_RX1_CMD
-            self.sm.put(a_4)      # READ RX1
-            self.sm.get(self.melem[qi])
+            sm.put(a_4)           # READ RX1
+            sm.get(self.melem[qi])
             self.eelem[qi] = 0x00 # No error
-            self.cque.put_sync(qi)
+            cque.put_sync(qi)
             self.nque += 1
 
          self.sm.put(             # READ INTERRUPT FLAGS (again)
             READ_CANINTF_CMD
          )
-         self.sm.get(b_1)
+         sm.get(b_1)
          stat = b_1[0]
          if stat & 0x20:          # Error of any sort?
-            self.sm.put(          # READ ERROR FLAGS
+            sm.put(               # READ ERROR FLAGS
                READ_EFLG_CMD
             )
-            self.sm.get(b_1)
+            sm.get(b_1)
             qi = self.nque % iCAN.CQSIZE
             self.eelem[qi] = b_1[0]
-            self.cque.put_sync(qi)
+            cque.put_sync(qi)
             self.nque += 1
 
-      self.sflag = 0              # Lower IRQ busy semaphore
       a_2[0] = BIT_MOD_CMD | 0x20 # CLEAR ERROR FLAG; others already cleared
-      self.sm.put(a_2)            # by READ RX0 / READ RX1; 
-      self.sm.get(b_2)            # this preserves any new read indications
+      a_2[1] = 0
+      sm.put(a_2)                 # by READ RX0 / READ RX1; 
+      sm.get(b_2)                 # this preserves any new read indications
+      self.sflag = 0              # Lower IRQ busy semaphore
 
    def __aiter__(self):           # enable await for pkt in .... feature
       return self
@@ -433,7 +444,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
       else:
          self.sflag = 0           # lower semaphore to unblock reads
          self._intr_ref(self.pin) # check for any read interrupts
-         return CanError.ERROR_FAIL
+         return 0x04              # return some kind of error
 
       a_4 = self.a_4
       b_4 = self.b_4
@@ -466,11 +477,12 @@ class iCAN:                      # interrupt driven CAN message sniffer
 
       self.sm.put(READ_TXBF_CMD)
       self.sm.get(b_1)
+      stat = b_1[0] & 0x70        # TXB_ABTF | TXB_MLOA | TXB_TXERR
 
       self.sflag = 0              # lower semaphore after read
       self._intr_ref(self.pin)    # check for any read interrupts
 
-      return b_1[0] & 0x70        # TXB_ABTF | TXB_MLOA | TXB_TXERR
+      return stat
 
    def stop(self):
       # Turns off CAN interrupt handling, disabling board for reading.
@@ -593,7 +605,7 @@ class feedback:
             self.chn[n] = not self.fbpin[n].value()
             if self.state[n] != self.chn[n]:
                self.wflag.set()
-            pps |= self.state[i] << i
+            pps |= self.state[n] << i
          self.fbpp[11] = pps     # Maintain state in poll packet
          await asyncio.sleep_ms(SETTLE_TIME)
 
@@ -666,11 +678,16 @@ TCP_RERR, TCP_WERR = False, False
 
 rrhash = 0
 
-qfCT, qfDB = False, False
+qfTC, qfCT, qfDB = False, False, False
+CANmsg = const('''
+              ***********************
+              ***CAN output q full***
+              ***********************
+''')
 TCPmsg = const('''
-              ***********************
-              ***TCP output q full***
-              ***********************
+              ************************
+              ***WiFi output q full***
+              ************************
 ''')
 DBGmsg = const('''
                  ****************
@@ -684,12 +701,12 @@ def qput(pkt,queue,flag,msg):
    # depending on whether a previous error already reported.
    # Use flag arg idiomatically: FLAG = qput(pkt,queue,FLAG,msg)
 
-   try:
-      queue.put_sync(pkt)
-      return False
-   except:
+   if queue.full():
       if not flag: print(msg)
       return True
+
+   queue.put_sync(pkt)
+   return False
 
 async def TCP_SERVER(R, W):
    # Callback when RocRail client connects to us
@@ -758,6 +775,46 @@ async def TCP_READER():
          await debugQUE.put(buf)
          ixDB += 1
 
+async def UDP_READER(timeout=0):
+   # packet layout:
+   #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
+   #    -----------  --  -----------------------
+   #       CAN ID    len  data (left justified)
+   import uselect as select
+   global rrhash, qfCT, qfTC, qfDB
+
+   s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+   s.setblocking(False)
+   s.bind(('0.0.0.0',CS2_RPORT))
+   p = select.poll()
+   p.register(s, select.POLLIN)
+   print('UDP listening, waiting for traffic.')
+   cpkt, npkt = [], 0
+   for n in range(QSIZE): cpkt.append(bytearray(CS2_SIZE))
+
+   while True:                   # Wait for activity on port
+      pkt = cpkt[npkt % QSIZE]
+      n = s.readinto(pkt, CS2_SIZE)
+      if n is not None:
+         assert n == CS2_SIZE
+         mem = memoryview(pkt)
+         rrhash = int.from_bytes(mem[2:4])
+         qfTC = qput(pkt,TCPtoCAN,qfTC,CANmsg)
+         qfDB = qput(pkt,debugQUE,qfDB,DBGmsg)
+
+         #  Check for S88 state poll
+         cmd = int.from_bytes(mem[0:2]) >> 1 & 0xff
+         sub = int(pkt[9]) if pkt[4] > 4 else -1
+         rsp = pkt[1] & 0x01
+         if cmd == 0x10 and sub == NODE_ID and not rsp:
+            fbpp = copy.copy(fdbk.state_packet)
+            qfCT = qput(fbpp, CANtoTCP, qfCT, TCPmsg)
+            qfDB = qput(fbpp, debugQUE, qfDB, DBGmsg)
+
+         npkt += 1
+         continue
+      await asyncio.sleep_ms(timeout)
+
 can = iCAN(_CANBOARD)
 async def CAN_READER():
    from canbus import CanError
@@ -777,7 +834,7 @@ async def CAN_READER():
 
    async for msg, err in can:     # Next queued CAN message
       if err:
-         print('*** CAN receive error %s' % CanError.decode(error=err))
+         print('*** CAN receive error %s' % CanError.decode(txctl=err))
          continue
 
       dbu, dbl = itob(msg[0]), itob(msg[1])
@@ -817,6 +874,18 @@ async def TCP_WRITER():
       except OSError:            # Connection lost/client disconnect
          TCP_WERR, TCP_W = True, None
 
+async def UDP_WRITER():
+                                 # set up for UDP use
+   s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+   s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+   s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+   s.bind(('0.0.0.0',0))         # assumed to be only one interface
+
+   while True:
+      async for pkt in CANtoTCP:
+         assert len(pkt) == CS2_SIZE
+         s.sendto(pkt, ('255.255.255.255',CS2_SPORT))
+
 async def CAN_WRITER(MERR=5, MCNT=500):
    from canbus import CanError
 
@@ -846,7 +915,7 @@ async def DEBUG_OUT():
 
    #                  0               1
    #                  0123456789ABCDEF0123456789ABCDEF
-   def mycode(ba, sp="□.........↲⤓↧⇤.................."):
+   def mycode(ba, sp="□.........↲↓↧⇤.................."):
       str = ''
       for b in ba:
          str += sp[b] if b < 0x20 else ('.' if b > 0x7f else chr(b))
@@ -863,10 +932,8 @@ async def DEBUG_OUT():
          mycode(buf[5:5+int(buf[4])])
       )
       cid = int.from_bytes(buf[2:4])
-      if cid == rrhash:
-         print('TCP -> CAN', data)
-      else:
-         print('CAN -> TCP', data)
+      dir = '->' if cid == rrhash else '<-'
+      print('%s %s CAN %s' % (_IPP,dir,data))
       dec.decode(
          int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])]
       )
@@ -905,7 +972,7 @@ async def RUNNER(ip):
    while True:
       await asyncio.sleep(60)
 
-print('TCP <-> CAN packet hub (%s)' % _VER)
+print('%s <-> CAN packet hub (%s)' % (_IPP,_VER))
 try:
    from marklin import decode, CS2decoder    # Marklin CS2 CAN packet decoder
 except:
@@ -943,16 +1010,23 @@ ip = wlan.ifconfig()[0]
 print('Available at {} as {}, port {:d}.'.format(ip,host,CS2_PORT))
 
 canr = asyncio.create_task(CAN_READER())
-tcpr = asyncio.create_task(TCP_READER())
-tcpw = asyncio.create_task(TCP_WRITER())
 canw = asyncio.create_task(CAN_WRITER())
+if _IPP == 'TCP':
+   tcpr = asyncio.create_task(TCP_READER())
+   tcpw = asyncio.create_task(TCP_WRITER())
+else:
+   udpr = asyncio.create_task(UDP_READER(1))
+   udpw = asyncio.create_task(UDP_WRITER())
 dbug = asyncio.create_task(DEBUG_OUT())
 beat = asyncio.create_task(HEARTBEAT())
 feed = asyncio.create_task(FEEDBACK())
-runr = asyncio.create_task(RUNNER(ip))
 
 try:
-   Loop.run_forever()
+   if _IPP == 'TCP':
+      runr = asyncio.create_task(RUNNER(ip))
+      Loop.run_forever()
+   else:
+      Loop.run_until_complete(udpr)
 except KeyboardInterrupt:
    can.stop()
    stats = fdbk.stats
