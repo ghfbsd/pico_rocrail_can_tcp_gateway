@@ -126,29 +126,31 @@ At this point, you need to choose whether you want to connect over WiFi with
 TCP or UDP.  This depends on what controller software you plan to use.
 Here are some guidelines:
 
-* Use UDP with JMRI - as of March 2025, it does not support TCP
 * Rocrail works with either TCP or UDP, but Märklin's preference is for TCP
 * If you plan to use a single controller, use TCP
+* TCP is also OK for JMRI - as of June 2025, it supports TCP (formerly UDP only)
 * Use UDP if you want to have multiple controllers running the same layout.
 
-The TCP hub is `TCP-CAN.py` and the UDP hub is `UDP-CAN.py`.  With either one,
-you have to edit the program's text to add your WiFi network credentials.
-With your favorite editor, change the lines,
+The hub is `Wifi-CAN.py`.  With either one, you have to edit the program's text
+to add your WiFi network credentials and configure it for use with either TCP or
+UDP.  With your favorite editor, change the lines,
 ```
 SSID = "****"
 PASS = "****"
 ```
 to the appropriate network name and password for your WiFi environment.
+Then change the line
+```
+_IPP = const('TCP')              # Protocol choice: TCP or UDP
+
+```
+to be either 'TCP' or 'UDP' depending on your protocol preference.
 Then, save the file.
 
 Finally, using **rshell**, load the program and make it run
 automatically when the RPP starts up.
 ```
-cp TCP-CAN.py /pyboard/main.py
-```
-or
-```
-cp UDP-CAN.py /pyboard/main.py
+cp Wifi-CAN.py /pyboard/main.py
 ```
 
 ### Connect to the Gleisbox
@@ -268,7 +270,7 @@ TCP -> CAN 0036 4767 00 0000 0000 0000 0000
    C CAN BOOT 1B (everybody)
 TCP -> CAN 0030 4767 00 0000 0000 0000 0000
    C PING 18 (everybody)
-CAN -> TCP 0031 4f20 08 4746 e70b 013e 0010
+TCP <- CAN 0031 4f20 08 4746 e70b 013e 0010
    R PING 18 (4746e70b): Gleisbox 601xx ver 013e
 ```
 
