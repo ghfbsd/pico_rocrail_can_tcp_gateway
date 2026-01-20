@@ -14,7 +14,7 @@
 # 16 Jan. 2025
 # last revision 20 Jan 2026
 
-_VER = const('AN206a')           # version ID
+_VER = const('AN206b')           # version ID
 
 ################################## Configuration variables start here...
 
@@ -23,7 +23,7 @@ PASS = "****"                    # Wifi network password
 
 _CANBOARD = const('auto')        # Board choice: 'auto' for auto-detect or
                                  # 'JI' or 'WS'
-_IPP = const('UDP')              # Protocol choice: TCP or UDP
+_IPP = const('TCP')              # Protocol choice: TCP or UDP
 
 ################################## Configuration variables ...end here
 
@@ -720,12 +720,14 @@ async def TCP_SERVER(R, W):
          print('*** TCP connection lost, waiting for reconnect.')
          break
 
-async def TCP_READER():
+async def TCP_READER(ip,host):
    # packet layout:
    #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
    #    -----------  --  -----------------------
    #       CAN ID    len  data (left justified)
    global TCP_R, TCP_RERR, rrhash, ixTC, ixDB, ixCT
+
+   print('Available at {} as {}, port {:d}.'.format(ip,host,CS2_PORT))
 
    while True:                   # Wait for connection
       if TCP_R is None:
@@ -775,7 +777,7 @@ async def TCP_READER():
          await debugQUE.put(buf)
          ixDB += 1
 
-async def UDP_READER(timeout=0):
+async def UDP_READER(ip,host,timeout=0):
    # packet layout:
    #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
    #    -----------  --  -----------------------
@@ -788,7 +790,12 @@ async def UDP_READER(timeout=0):
    s.bind(('0.0.0.0',CS2_RPORT))
    p = select.poll()
    p.register(s, select.POLLIN)
-   print('UDP listening, waiting for traffic.')
+   print(
+      'Available at {} as {}, port {:d}/{:d}.'.format(
+         ip,host,CS2_RPORT,CS2_SPORT
+      )
+   )
+   print('UDP connection made, waiting for traffic.')
    cpkt, npkt = [], 0
    for n in range(QSIZE): cpkt.append(bytearray(CS2_SIZE))
 
@@ -996,6 +1003,11 @@ if not wlan.isconnected():
 else:
    host = wlan.config('hostname')
 
+#Power management on chip has to be turned off in order to not
+#  drop UDP packets; see https://forums.raspberrypi.com/viewtopic.php?t=365691
+if _IPP == 'UDP':
+   wlan.config(pm=wlan.PM_NONE)   # disable power management on chip
+
 while not wlan.isconnected():
    # Fast flash while waiting for wifi connection; boot button restarts.
    if rp2.bootsel_button() == 1: sys.exit()
@@ -1007,15 +1019,14 @@ while not wlan.isconnected():
 
 pico_led.on()
 ip = wlan.ifconfig()[0]
-print('Available at {} as {}, port {:d}.'.format(ip,host,CS2_PORT))
 
 canr = asyncio.create_task(CAN_READER())
 canw = asyncio.create_task(CAN_WRITER())
 if _IPP == 'TCP':
-   tcpr = asyncio.create_task(TCP_READER())
+   tcpr = asyncio.create_task(TCP_READER(ip,host))
    tcpw = asyncio.create_task(TCP_WRITER())
 else:
-   udpr = asyncio.create_task(UDP_READER(1))
+   udpr = asyncio.create_task(UDP_READER(ip,host,timeout=1))
    udpw = asyncio.create_task(UDP_WRITER())
 dbug = asyncio.create_task(DEBUG_OUT())
 beat = asyncio.create_task(HEARTBEAT())
