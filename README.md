@@ -131,7 +131,7 @@ Here are some guidelines:
 * TCP is also OK for JMRI - as of June 2025, it supports TCP (formerly UDP only)
 * Use UDP if you want to have multiple controllers running the same layout.
 
-The hub is `Wifi-CAN.py`.  With either one, you have to edit the program's text
+The hub is `Wifi-CAN.py`.  You have to edit the program's text
 to add your WiFi network credentials and configure it for use with either TCP or
 UDP.  With your favorite editor, change the lines,
 ```
