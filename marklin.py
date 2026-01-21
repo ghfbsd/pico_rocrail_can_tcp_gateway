@@ -27,7 +27,7 @@ class CS2decoder:
       self.pfx = pfx
       self.print = print
 
-   def _CRC(self,byt,acc):
+   def _CRC(byt,acc):
       acc = (acc ^ (byt << 8)) & 0xffff
       for i in range(8):
          if acc & 0x8000 == 0x8000:
@@ -71,14 +71,18 @@ class CS2decoder:
             )
             self.txt, self.crc = '', 0xffff
          elif dlc == 8:
+            _CRC = CS2decoder._CRC
             for c in data:
-               self.crc = self._CRC(c,self.crc)
+               self.crc = _CRC(c,self.crc)
             self.txt += data.decode('utf-8')
             self.cnt -= 8
 
             if self.cnt <= 0:
                mess += ' (end)'
-               if self.val != self.crc or self.cnt != 0: mess += ' (garbled)'
+               if self.val != self.crc:
+                  mess += ' (invalid CRC)'
+               if self.cnt != 0:
+                  mess += ' (incorrect count)'
                mess += '  text:\n' + self.txt
       else:
          mess = decode(ID, data, detail)
