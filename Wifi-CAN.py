@@ -12,9 +12,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 20 Jan 2026
+# last revision 21 Jan 2026
 
-_VER = const('AN206b')           # version ID
+_VER = const('AN216')            # version ID
 
 ################################## Configuration variables start here...
 
@@ -429,6 +429,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
 
       self.sflag = 1              # raise semaphore to block reads
 
+      sm = self.sm
       b_1 = self.b_1
       for TXB in [MCP_TXB0, MCP_TXB1, MCP_TXB2]:
          READ_TXBF_CMD=(      # PIO FIFO 1 word
@@ -437,8 +438,8 @@ class iCAN:                      # interrupt driven CAN message sniffer
             TXB               <<  8 | 
             0
          )
-         self.sm.put(READ_TXBF_CMD)
-         self.sm.get(b_1)
+         sm.put(READ_TXBF_CMD)
+         sm.get(b_1)
          if not(b_1[0] & 0x08):   # clear buf?
             break
       else:
@@ -458,8 +459,8 @@ class iCAN:                      # interrupt driven CAN message sniffer
       a_4[1] = int.from_bytes(buf[1:5])
       a_4[2] = int.from_bytes(buf[5:9])
       a_4[3] = int.from_bytes(buf[9:13])
-      self.sm.put(a_4)
-      self.sm.get(b_4)
+      sm.put(a_4)
+      sm.get(b_4)
 
       BIT_MOD_CMD=(        # PIO FIFO 2 words; bit clear value in 2nd word
          (4-1)             << 24 |
@@ -472,11 +473,11 @@ class iCAN:                      # interrupt driven CAN message sniffer
       b_2 = self.b_2
       a_2[0] = BIT_MOD_CMD | 0x0B
       a_2[1] = (0x08 | ((ID >> 29) & 0x03)) << 24
-      self.sm.put(a_2)            # mark buffer ready for transmit
-      self.sm.get(b_2)
+      sm.put(a_2)                 # mark buffer ready for transmit
+      sm.get(b_2)
 
-      self.sm.put(READ_TXBF_CMD)
-      self.sm.get(b_1)
+      sm.put(READ_TXBF_CMD)
+      sm.get(b_1)
       stat = b_1[0] & 0x70        # TXB_ABTF | TXB_MLOA | TXB_TXERR
 
       self.sflag = 0              # lower semaphore after read
@@ -841,7 +842,7 @@ async def CAN_READER():
 
    async for msg, err in can:     # Next queued CAN message
       if err:
-         print('*** CAN receive error %s' % CanError.decode(txctl=err))
+         print('*** CAN receive error %s' % CanError.decode(error=err))
          continue
 
       dbu, dbl = itob(msg[0]), itob(msg[1])
@@ -910,7 +911,7 @@ async def CAN_WRITER(MERR=5, MCNT=500):
          cnt += 1
          if cnt <= MERR:
             print('   >>>CAN write error<<< (err %02x %s)%s' % 
-               (errf, CanError.decode(error=errf),
+               (errf, CanError.decode(txctl=errf),
                   ' - quelling further reports' if cnt >= MERR else '')
             )
          await asyncio.sleep_ms(10)
@@ -963,11 +964,6 @@ fdbk = feedback(NODE_ID,can.pins.FBP) # Feedback framework initialization
 
 async def FEEDBACK():
    # Simulated S88 feedback
-
-   def post(pkt):                # Called for every change in state
-      global qfCT, qfDB
-      qfCT = qput(pkt, CANtoTCP, qfCT, TCPmsg)
-      qfDB = qput(pkt, debugQUE, qfDB, DBGmsg)
 
    async for pkt in fdbk:        # Wait for change in state of some feedback pin
       global qfCT, qfDB
@@ -1025,19 +1021,18 @@ canw = asyncio.create_task(CAN_WRITER())
 if _IPP == 'TCP':
    tcpr = asyncio.create_task(TCP_READER(ip,host))
    tcpw = asyncio.create_task(TCP_WRITER())
+   runr = asyncio.create_task(RUNNER(ip))
+   task = runr
 else:
    udpr = asyncio.create_task(UDP_READER(ip,host,timeout=1))
    udpw = asyncio.create_task(UDP_WRITER())
+   task = udpr
 dbug = asyncio.create_task(DEBUG_OUT())
 beat = asyncio.create_task(HEARTBEAT())
 feed = asyncio.create_task(FEEDBACK())
 
 try:
-   if _IPP == 'TCP':
-      runr = asyncio.create_task(RUNNER(ip))
-      Loop.run_forever()
-   else:
-      Loop.run_until_complete(udpr)
+   Loop.run_until_complete(task)
 except KeyboardInterrupt:
    can.stop()
    stats = fdbk.stats
