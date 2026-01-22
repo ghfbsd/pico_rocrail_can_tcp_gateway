@@ -61,9 +61,9 @@ class CS2decoder:
          mess += ' %s %.2f%s' % (name, val, unit)
       elif comm == 0x21 and detail:
          mess = ('R' if resp else 'C') + ' CONFIG DATA STREAM'
-         if resp or dlc not in [7,8]:
+         if resp or dlc not in [6,7,8]:
             mess += ' (garbled)'
-         if dlc == 7:
+         if dlc == 7 or dlc == 6:
             self.cnt = int.from_bytes(data[0:4],'big')
             self.val = int.from_bytes(data[4:6],'big')
             mess += ' (start: count %d, CRC %04x)' % (
