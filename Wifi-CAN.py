@@ -12,9 +12,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 21 Jan 2026
+# last revision 25 Jan 2026
 
-_VER = const('AN216')            # version ID
+_VER = const('AN256')            # version ID
 
 ################################## Configuration variables start here...
 
@@ -32,7 +32,7 @@ CS2_RPORT = const(15731)         # Marklin diktat: UDP
 CS2_SPORT = const(15730)         # Marklin diktat: UDP
 CS2_SIZE = const(13)             # Fixed by protocol definition
 
-QSIZE = const(100)               # Size of various I/O queues (modest)
+QSIZE = const(400)               # Size of various I/O queues (modest)
 
 NODE_ID = const(1)               # "S88" node ID
 SETTLE_TIME = const(65)          # "S88" contact settle time (ms) (was 125)
@@ -53,7 +53,7 @@ MCP_TXB2          = const(0x50)
 import uasyncio as asyncio
 import network
 import usocket as socket
-import sys
+import sys, errno, utime
 from time import sleep
 from asyncio import Loop
 from machine import Pin, Timer
@@ -88,7 +88,7 @@ pico_led = Pin("LED", Pin.OUT)
 class iCAN:                      # interrupt driven CAN message sniffer
    from collections import namedtuple
 
-   CQSIZE = 250                  # Big to read CONFIG DATA bursts
+   CQSIZE = const(QSIZE)         # Big to read CONFIG DATA bursts
 
    CAN_pins = namedtuple('CAN pins',
       ['INT_PIN','SPI_CS', 'SPI_SCK', 'SPI_MOSI', 'SPI_MISO', 'FBP', 'name']
@@ -196,6 +196,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
       self.eelem = bytearray(iCAN.CQSIZE)
       self.nque = 0
       self.sflag = 0
+      self.icnt = 0
       self.buf = bytearray(13)
       self.a_4 = array('I',4*[0])
       self.a_2 = array('I',2*[0])
@@ -300,12 +301,6 @@ class iCAN:                      # interrupt driven CAN message sniffer
          MCP_EFLG          <<  8 | 
          0
       ),
-      WRITE_CANINTF_CMD=(  # PIO FIFO 1 word
-         (3-1)             << 24 |
-         INSTR_WRITE       << 16 | 
-         MCP_CANINTF       <<  8 | 
-         0
-      ),
       READ_RX0_CMD=(       # PIO FIFO 4 words
          (15-1)            << 24 | # read more for PIO autopush of last byte
          INSTR_RXBUF0      << 16 |
@@ -323,10 +318,10 @@ class iCAN:                      # interrupt driven CAN message sniffer
          0                 # bit clear mask to be ORed in
       ),
       qi=0,
-      stat=0,
-      intr=0
+      stat=0
    ):
 
+      self.icnt += 1              # Count interrupts
       if self.sflag: return       # Quick return if IRQ is busy
       self.sflag = 1              # Raise IRQ busy semaphore
 
@@ -336,6 +331,8 @@ class iCAN:                      # interrupt driven CAN message sniffer
       b_1 = self.b_1
       sm = self.sm
       cque = self.cque
+      eelem = self.eelem
+      melem = self.melem
          
       sm.put(                     # GET INTERRUPT FLAGS
          READ_CANINTF_CMD
@@ -348,9 +345,13 @@ class iCAN:                      # interrupt driven CAN message sniffer
          )
          sm.get(b_1)
          qi = self.nque % iCAN.CQSIZE
-         self.eelem[qi] = b_1[0]
+         eelem[qi] = b_1[0]
          cque.put_sync(qi)        # Queue error indication, interpret later
          self.nque += 1
+         a_2[0] = BIT_MOD_CMD | 0x20 # CLEAR ERROR FLAG
+         a_2[1] = 0
+         sm.put(a_2)
+         sm.get(b_2)              # this preserves any new read indications
 
       while stat & 0x03:          # cycle while something to read?
 
@@ -358,8 +359,8 @@ class iCAN:                      # interrupt driven CAN message sniffer
             qi = self.nque % iCAN.CQSIZE
             a_4[0] = READ_RX0_CMD
             sm.put(a_4)           # READ RX0
-            sm.get(self.melem[qi])
-            self.eelem[qi] = 0x00 # No error
+            sm.get(melem[qi])
+            eelem[qi] = 0x00 # No error
             cque.put_sync(qi)
             self.nque += 1
 
@@ -367,8 +368,8 @@ class iCAN:                      # interrupt driven CAN message sniffer
             qi = self.nque % iCAN.CQSIZE
             a_4[0] = READ_RX1_CMD
             sm.put(a_4)           # READ RX1
-            sm.get(self.melem[qi])
-            self.eelem[qi] = 0x00 # No error
+            sm.get(melem[qi])
+            eelem[qi] = 0x00 # No error
             cque.put_sync(qi)
             self.nque += 1
 
@@ -383,14 +384,14 @@ class iCAN:                      # interrupt driven CAN message sniffer
             )
             sm.get(b_1)
             qi = self.nque % iCAN.CQSIZE
-            self.eelem[qi] = b_1[0]
+            eelem[qi] = b_1[0]
             cque.put_sync(qi)
             self.nque += 1
+            a_2[0] = BIT_MOD_CMD | 0x20 # CLEAR ERROR FLAG;
+            a_2[1] = 0            # others already cleared
+            sm.put(a_2)           # by READ RX0 / READ RX1; 
+            sm.get(b_2)           # this preserves any new read indications
 
-      a_2[0] = BIT_MOD_CMD | 0x20 # CLEAR ERROR FLAG; others already cleared
-      a_2[1] = 0
-      sm.put(a_2)                 # by READ RX0 / READ RX1; 
-      sm.get(b_2)                 # this preserves any new read indications
       self.sflag = 0              # Lower IRQ busy semaphore
 
    def __aiter__(self):           # enable await for pkt in .... feature
@@ -427,6 +428,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
       )
       if dlc > 0: buf[5:5+dlc] = data[0:dlc]
 
+      icnt = self.icnt            # save interrupt count
       self.sflag = 1              # raise semaphore to block reads
 
       sm = self.sm
@@ -444,7 +446,8 @@ class iCAN:                      # interrupt driven CAN message sniffer
             break
       else:
          self.sflag = 0           # lower semaphore to unblock reads
-         self._intr_ref(self.pin) # check for any read interrupts
+         if self.icnt != icnt:    # check for any read interrupts
+            self._intr_ref(self.pin)
          return 0x04              # return some kind of error
 
       a_4 = self.a_4
@@ -481,7 +484,8 @@ class iCAN:                      # interrupt driven CAN message sniffer
       stat = b_1[0] & 0x70        # TXB_ABTF | TXB_MLOA | TXB_TXERR
 
       self.sflag = 0              # lower semaphore after read
-      self._intr_ref(self.pin)    # check for any read interrupts
+      if self.icnt != icnt:
+         self._intr_ref(self.pin) # check for missed read interrupts
 
       return stat
 
@@ -493,7 +497,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
 class feedback:
    # Implement feedback by logic-level input from track sensors
 
-   interrupt = False                  # True for interrupt or False for poll
+   interrupt = True                   # True for interrupt or False for poll
 
    def __init__(self,node,pins):
       myhash = 0x5338
@@ -738,9 +742,13 @@ async def TCP_READER(ip,host):
       try:                       # Serve it
          pkt = await TCP_R.readexactly(CS2_SIZE)
       except EOFError:           # Connection lost/client disconnect
+         print('TCP EOF error')
          TCP_RERR, TCP_R = True, None
          continue
-      except OSError:            # Connection reset/client disconnect
+      except OSError as err:     # Connection reset/client disconnect
+         print('TCP read error: %s (%d)' % (
+            errno.errorcode[err.errno],err.errno
+         ))
          TCP_RERR, TCP_R = True, None
          continue
 
@@ -829,9 +837,7 @@ async def CAN_READER():
    global qfCT, ixCT, qfDB, ixDB
 
    def itob(wrd):
-      return bytes(
-         (wrd >> 24 & 0xff, wrd >> 16 & 0xff, wrd >> 8 & 0xff, wrd & 0xff)
-      )
+      return wrd.to_bytes(4,'big')
 
    print(
       "CAN %s board initialized successfully, waiting for traffic." %
@@ -866,9 +872,10 @@ async def CAN_READER():
       qfDB = qput(pkt, debugQUE, qfDB, DBGmsg)
       ixDB += 1
 
-async def TCP_WRITER():
+async def TCP_WRITER(DELAY=500):
    global TCP_W, TCP_WERR
 
+   last_t = utime.ticks_us()
    while True:                   # Wait for connection
       if TCP_W is None:
          await asyncio.sleep_ms(10)
@@ -877,9 +884,16 @@ async def TCP_WRITER():
       try:                       # Serve it
          async for pkt in CANtoTCP:
             assert len(pkt) == CS2_SIZE
+            delta = utime.ticks_diff(utime.ticks_us(), last_t)
+            if delta < DELAY:
+               await asyncio.sleep_ms((DELAY - delta) // 1000)
             TCP_W.write(pkt)
             TCP_W.drain()
-      except OSError:            # Connection lost/client disconnect
+            last_t = utime.ticks_us()
+      except OSError as err:     # Connection lost/client disconnect
+         print('TCP write error: %s (%d)' % (
+            errno.errorcode[err.errno],err.errno
+         ))
          TCP_WERR, TCP_W = True, None
 
 async def UDP_WRITER():
@@ -945,14 +959,12 @@ async def DEBUG_OUT():
       dec.decode(
          int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])]
       )
-      if TCPtoCAN.qsize() > 0 and TCPtoCAN.qsize() % 5 == 0:
-         print('TCPtoCAN queue congestion: %d waiting' % TCPtoCAN.qsize())
-      if CANtoTCP.qsize() > 0 and CANtoTCP.qsize() % 5 == 0:
-         print('CANtoTCP queue congestion: %d waiting' % CANtoTCP.qsize())
 
 async def HEARTBEAT():
    # Slow LED flash heartbeat while running; boot button restarts.
    global pico_led
+
+   warn = int(QSIZE * 0.75)
    while True:
       if rp2.bootsel_button() == 1: sys.exit()
       pico_led.on()
@@ -960,13 +972,18 @@ async def HEARTBEAT():
       pico_led.off()
       await asyncio.sleep(1)
 
+      if TCPtoCAN.qsize() > warn and (TCPtoCAN.qsize()-warn) % 5 == 0:
+         print('Wifi to CAN queue congestion: %d waiting' % TCPtoCAN.qsize())
+      if CANtoTCP.qsize() > warn and (CANtoTCP.qsize()-warn) % 5 == 0:
+         print('CAN to Wifi queue congestion: %d waiting' % CANtoTCP.qsize())
+
 fdbk = feedback(NODE_ID,can.pins.FBP) # Feedback framework initialization
 
 async def FEEDBACK():
+   global qfCT, qfDB
    # Simulated S88 feedback
 
    async for pkt in fdbk:        # Wait for change in state of some feedback pin
-      global qfCT, qfDB
       qfCT = qput(pkt, CANtoTCP, qfCT, TCPmsg)
       qfDB = qput(pkt, debugQUE, qfDB, DBGmsg)
 
