@@ -12,9 +12,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 25 Jan 2026
+# last revision 26 Jan 2026
 
-_VER = const('AN256')            # version ID
+_VER = const('AN266')            # version ID
 
 ################################## Configuration variables start here...
 
@@ -713,24 +713,24 @@ def qput(pkt,queue,flag,msg):
    queue.put_sync(pkt)
    return False
 
+TCP_DONE = asyncio.ThreadSafeFlag()
 async def TCP_SERVER(R, W):
    # Callback when RocRail client connects to us
-   global TCP_R, TCP_W, TCP_RERR, TCP_WERR
+   global TCP_R, TCP_W
    print('TCP connection made, waiting for traffic.')
    TCP_R, TCP_W = R, W
-   while True:
-      await asyncio.sleep(15)
-      if TCP_RERR and TCP_WERR:
-         # Must be a disconnect; finish and wait for a new connection
-         print('*** TCP connection lost, waiting for reconnect.')
-         break
+
+   TCP_DONE.clear()
+   await TCP_DONE.wait()   
+   # Must be a disconnect; finish and wait for a new connection
+   print('*** TCP connection lost, waiting for reconnect.')
 
 async def TCP_READER(ip,host):
    # packet layout:
    #    xx xx xx xx  xx  xx xx xx xx xx xx xx xx  -  13 bytes total = CS2_SIZE
    #    -----------  --  -----------------------
    #       CAN ID    len  data (left justified)
-   global TCP_R, TCP_RERR, rrhash, ixTC, ixDB, ixCT
+   global TCP_R, rrhash, ixTC, ixDB, ixCT
 
    print('Available at {} as {}, port {:d}.'.format(ip,host,CS2_PORT))
 
@@ -743,13 +743,15 @@ async def TCP_READER(ip,host):
          pkt = await TCP_R.readexactly(CS2_SIZE)
       except EOFError:           # Connection lost/client disconnect
          print('TCP EOF error')
-         TCP_RERR, TCP_R = True, None
+         TCP_R = None
+         TCP_DONE.set()
          continue
       except OSError as err:     # Connection reset/client disconnect
          print('TCP read error: %s (%d)' % (
             errno.errorcode[err.errno],err.errno
          ))
-         TCP_RERR, TCP_R = True, None
+         TCP_R = None
+         TCP_DONE.set()
          continue
 
       assert len(pkt) == CS2_SIZE
@@ -873,7 +875,7 @@ async def CAN_READER():
       ixDB += 1
 
 async def TCP_WRITER(DELAY=500):
-   global TCP_W, TCP_WERR
+   global TCP_W
 
    last_t = utime.ticks_us()
    while True:                   # Wait for connection
@@ -894,7 +896,8 @@ async def TCP_WRITER(DELAY=500):
          print('TCP write error: %s (%d)' % (
             errno.errorcode[err.errno],err.errno
          ))
-         TCP_WERR, TCP_W = True, None
+         TCP_W = None
+         TCP_DONE.set()
 
 async def UDP_WRITER():
                                  # set up for UDP use
