@@ -1,4 +1,4 @@
-# Raspberry Pi Pico-based TCP-CAN or UDP-CAN hub
+# Raspberry Pi Pico-based Wifi-CAN hub
 
 ![Gleisbox and board image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/complete.jpg?raw=true)
 
