@@ -12,9 +12,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 26 Jan 2026
+# last revision 29 Jan 2026
 
-_VER = const('AN266')            # version ID
+_VER = const('AN269')            # version ID
 
 ################################## Configuration variables start here...
 
@@ -497,7 +497,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
 class feedback:
    # Implement feedback by logic-level input from track sensors
 
-   interrupt = True                   # True for interrupt or False for poll
+   interrupt = False                  # True for interrupt or False for poll
 
    def __init__(self,node,pins):
       myhash = 0x5338
@@ -878,26 +878,37 @@ async def TCP_WRITER(DELAY=500):
    global TCP_W
 
    last_t = utime.ticks_us()
-   while True:                   # Wait for connection
-      if TCP_W is None:
-         await asyncio.sleep_ms(10)
-         continue
 
-      try:                       # Serve it
-         async for pkt in CANtoTCP:
-            assert len(pkt) == CS2_SIZE
-            delta = utime.ticks_diff(utime.ticks_us(), last_t)
-            if delta < DELAY:
-               await asyncio.sleep_ms((DELAY - delta) // 1000)
+   async for pkt in CANtoTCP:     # Wait for a packet
+      assert len(pkt) == CS2_SIZE
+
+      delta = utime.ticks_diff(utime.ticks_us(), last_t)
+      if delta < DELAY:
+         await asyncio.sleep_ms((DELAY - delta) // 1000)
+
+      # This section endeavours to NEVER lose a packet sent from the
+      # tracks to the controller.  Once we have one in our hands, we
+      # keep trying to deliver it, even if the connection is temporarily
+      # lost.  During long transmission bursts by, e.g. CONFIG DATA REQUEST,
+      # the network/router might be overwhelmed and throttle transmission by
+      # closing the connection.  In this case, we just wait for it to come
+      # back ... and DONT LOSE A PACKET!
+
+      while True:
+         while TCP_W is None:
+            await asyncio.sleep_ms(10)
+         try:                     # Serve it
             TCP_W.write(pkt)
-            TCP_W.drain()
-            last_t = utime.ticks_us()
-      except OSError as err:     # Connection lost/client disconnect
-         print('TCP write error: %s (%d)' % (
-            errno.errorcode[err.errno],err.errno
-         ))
-         TCP_W = None
-         TCP_DONE.set()
+            await TCP_W.drain()
+            break
+         except OSError as err:   # Connection lost/client disconnect
+            print('TCP write error: %s (%d)' % (
+               errno.errorcode[err.errno],err.errno
+            ))
+            TCP_W = None
+            TCP_DONE.set()
+            continue              # Hope the connection comes back!
+      last_t = utime.ticks_us()
 
 async def UDP_WRITER():
                                  # set up for UDP use
