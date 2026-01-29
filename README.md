@@ -18,8 +18,8 @@ and accessories on the rails
 them out over the WiFi network
 
 The communications protocol used is a public one
-[published by Märklin](https://streaming.maerklin.de/public-media/cs2/cs2CAN-Protokoll-2_0.pdf) using either TCP as or UDP a transport layer on WiFi and the CAN
-protocol over wires connecting the various Märklin boxes.
+[published by Märklin](https://streaming.maerklin.de/public-media/cs2/cs2CAN-Protokoll-2_0.pdf) using Wifi over either TCP or UDP to pass protocol packets to
+the CAN bus wired to the various Märklin boxes.
 This same protocol is used by popular train control software, in particular
 [Rocrail](https://wiki.rocrail.net/doku.php?id=start),
 [iTrain](https://www.berros.eu/en/itrain/),
@@ -302,7 +302,8 @@ run them both.  Only the RPP's USB connection will talk to **rshell** though.
 ## Using the Hub with JMRI
 
 JMRI releases prior to 5.11 only work with the UDP protocol; make sure that
-you copied `UDP-CAN.py` to `/pyboard/main.py` on the RPP hub before starting it.
+you chose `'UDP'` as your protocol type in `Wifi-CAN.py` on the RPP hub before
+downloading and starting it.
 Releases 5.11 (predicted release date is June 2025) and higher will work with
 TCP.
 
