@@ -315,9 +315,12 @@ hub's IP address or DNS name (if your network provides it).
 
 ## Using the Hub with BTrain
 
-BTrain assumes that you have a Marklin CS3 attached, rather than a Gleisbox.
-In order to make BTrain work you need to install a modified version of the code
-(available in this user's [github repository](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/complete.jpg)).  Compile the app, then run it.  Under the `BTrain->Settings` menu item, tick the `Gleisbox only` option and you're set.
+BTrain can work with either a Marklin CS3 attached or a Gleisbox, with or
+without an MS2.  To make BTrain work without a CS3, you need to install a
+modified version of the code (available in this user's
+[github repository](https://github.com/ghfbsd/BTrain)).  Install the app in
+the latest release materials, then run it.  Under the `BTrain->Settings` menu
+item, tick the `Gleisbox only` option and you're set.
 
 You define a layout and then a locomotive (it does not matter which one; you're
 going to have to accept that the icon won't match your loco).
@@ -333,6 +336,14 @@ defined for each block.  (The feedback does not have to be actively working,
 just defined.)  After your layout passes BTrain's sanity tests, you can run
 locos manually.  Automatic train operation is possible once you get feedback
 fully working for each block.
+
+If your MS2 is attached, BTrain will download the loco list from it.  This can
+take a few minutes if your MS2 is at its full, 40 loco capacity.  After that,
+you can run them and define trains operated by them.
+
+If there is no MS2 attached, BTrain will usually discover the loco on the
+tracks (provided it is an MFX loco) and register it as the first locomotive in
+the built-in list that you provided when you set up your initial layout.
 
 ## Additional features
 
