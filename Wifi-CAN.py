@@ -12,9 +12,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 29 Jan 2026
+# last revision 30 Jan 2026
 
-_VER = const('AN269')            # version ID
+_VER = const('AN309')            # version ID
 
 ################################## Configuration variables start here...
 
@@ -37,18 +37,18 @@ QSIZE = const(400)               # Size of various I/O queues (modest)
 NODE_ID = const(1)               # "S88" node ID
 SETTLE_TIME = const(65)          # "S88" contact settle time (ms) (was 125)
 
-INSTR_READ_STATUS = const(0xA0)  # PIO for fast reading of 250 kbps CAN bus
-INSTR_WRITE       = const(0x02)
-INSTR_READ        = const(0x03)
-INSTR_RXBUF0      = const(0x90)
-INSTR_RXBUF1      = const(0x94)
-INSTR_BIT_MOD     = const(0x05)
+_INSTR_READ_STATUS = const(0xA0) # PIO for fast reading of 250 kbps CAN bus
+_INSTR_WRITE       = const(0x02)
+_INSTR_READ        = const(0x03)
+_INSTR_RXBUF0      = const(0x90)
+_INSTR_RXBUF1      = const(0x94)
+_INSTR_BIT_MOD     = const(0x05)
 
-MCP_CANINTF       = const(0x2C)
-MCP_EFLG          = const(0x2D)
-MCP_TXB0          = const(0x30)
-MCP_TXB1          = const(0x40)
-MCP_TXB2          = const(0x50)
+_MCP_CANINTF       = const(0x2C)
+_MCP_EFLG          = const(0x2D)
+_MCP_TXB0          = const(0x30)
+_MCP_TXB1          = const(0x40)
+_MCP_TXB2          = const(0x50)
 
 import uasyncio as asyncio
 import network
@@ -285,36 +285,36 @@ class iCAN:                      # interrupt driven CAN message sniffer
    @micropython.native
    def _intr(self, pin,
       READ_STATUS_CMD=(    # PIO FIFO 1 word
-         (2-1)             << 24 |
-         INSTR_READ_STATUS << 16 |
+         (2-1)              << 24 |
+         _INSTR_READ_STATUS << 16 |
          0
       ),
       READ_CANINTF_CMD=(   # PIO FIFO 1 word
-         (3-1)             << 24 |
-         INSTR_READ        << 16 | 
-         MCP_CANINTF       <<  8 | 
+         (3-1)              << 24 |
+         _INSTR_READ        << 16 | 
+         _MCP_CANINTF       <<  8 | 
          0
       ),
       READ_EFLG_CMD=(      # PIO FIFO 1 word
-         (3-1)             << 24 |
-         INSTR_READ        << 16 | 
-         MCP_EFLG          <<  8 | 
+         (3-1)              << 24 |
+         _INSTR_READ        << 16 | 
+         _MCP_EFLG          <<  8 | 
          0
       ),
       READ_RX0_CMD=(       # PIO FIFO 4 words
-         (15-1)            << 24 | # read more for PIO autopush of last byte
-         INSTR_RXBUF0      << 16 |
+         (15-1)             << 24 | # read more for PIO autopush of last byte
+         _INSTR_RXBUF0      << 16 |
          0
       ),
       READ_RX1_CMD=(       # PIO FIFO 4 words
-         (15-1)            << 24 | # read more for PIO autopush of last byte
-         INSTR_RXBUF1      << 16 |
+         (15-1)             << 24 | # read more for PIO autopush of last byte
+         _INSTR_RXBUF1      << 16 |
          0
       ),
       BIT_MOD_CMD=(        # PIO FIFO 2 words; Data byte in 2nd word high byte
-         (4-1)             << 24 |
-         INSTR_BIT_MOD     << 16 |
-         MCP_CANINTF       <<  8 |
+         (4-1)              << 24 |
+         _INSTR_BIT_MOD     << 16 |
+         _MCP_CANINTF       <<  8 |
          0                 # bit clear mask to be ORed in
       ),
       qi=0,
@@ -433,11 +433,11 @@ class iCAN:                      # interrupt driven CAN message sniffer
 
       sm = self.sm
       b_1 = self.b_1
-      for TXB in [MCP_TXB0, MCP_TXB1, MCP_TXB2]:
+      for TXB in [_MCP_TXB0, _MCP_TXB1, _MCP_TXB2]:
          READ_TXBF_CMD=(      # PIO FIFO 1 word
-            (3-1)             << 24 |
-            INSTR_READ        << 16 | 
-            TXB               <<  8 | 
+            (3-1)              << 24 |
+            _INSTR_READ        << 16 | 
+            TXB                <<  8 | 
             0
          )
          sm.put(READ_TXBF_CMD)
@@ -453,9 +453,9 @@ class iCAN:                      # interrupt driven CAN message sniffer
       a_4 = self.a_4
       b_4 = self.b_4
       WRITE_TXBF_CMD=(        # PIO FIFO 4 words
-         (2+5+8-1)            << 24 |
-         INSTR_WRITE          << 16 | 
-         (TXB + 1)            <<  8 | 
+         (2+5+8-1)             << 24 |
+         _INSTR_WRITE          << 16 | 
+         (TXB + 1)             <<  8 | 
          0
       )
       a_4[0] = WRITE_TXBF_CMD | buf[0]
@@ -466,9 +466,9 @@ class iCAN:                      # interrupt driven CAN message sniffer
       sm.get(b_4)
 
       BIT_MOD_CMD=(        # PIO FIFO 2 words; bit clear value in 2nd word
-         (4-1)             << 24 |
-         INSTR_BIT_MOD     << 16 |
-         TXB               <<  8 |
+         (4-1)              << 24 |
+         _INSTR_BIT_MOD     << 16 |
+         TXB                <<  8 |
          0                 # bit clear mask to be ORed in
       )
 
@@ -991,9 +991,7 @@ async def HEARTBEAT():
       if CANtoTCP.qsize() > warn and (CANtoTCP.qsize()-warn) % 5 == 0:
          print('CAN to Wifi queue congestion: %d waiting' % CANtoTCP.qsize())
 
-fdbk = feedback(NODE_ID,can.pins.FBP) # Feedback framework initialization
-
-async def FEEDBACK():
+async def FEEDBACK(fdbk):
    global qfCT, qfDB
    # Simulated S88 feedback
 
@@ -1047,6 +1045,9 @@ while not wlan.isconnected():
 pico_led.on()
 ip = wlan.ifconfig()[0]
 
+fdbk = feedback(NODE_ID,can.pins.FBP) # Feedback framework initialization
+feed = asyncio.create_task(FEEDBACK(fdbk))
+
 canr = asyncio.create_task(CAN_READER())
 canw = asyncio.create_task(CAN_WRITER())
 if _IPP == 'TCP':
@@ -1060,7 +1061,6 @@ else:
    task = udpr
 dbug = asyncio.create_task(DEBUG_OUT())
 beat = asyncio.create_task(HEARTBEAT())
-feed = asyncio.create_task(FEEDBACK())
 
 try:
    Loop.run_until_complete(task)
