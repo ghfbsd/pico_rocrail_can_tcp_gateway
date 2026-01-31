@@ -12,9 +12,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 30 Jan 2026
+# last revision 31 Jan 2026
 
-_VER = const('AN309')            # version ID
+_VER = const('AN316')            # version ID
 
 ################################## Configuration variables start here...
 
@@ -31,6 +31,8 @@ CS2_PORT = const(15731)          # Marklin diktat: TCP
 CS2_RPORT = const(15731)         # Marklin diktat: UDP
 CS2_SPORT = const(15730)         # Marklin diktat: UDP
 CS2_SIZE = const(13)             # Fixed by protocol definition
+
+_DELAY = const(500)              # us delay between sent Wifi packets
 
 QSIZE = const(400)               # Size of various I/O queues (modest)
 
@@ -679,7 +681,6 @@ TCPtoCAN, ixTC = ThreadSafeQueue(QSIZE), 0
 debugQUE, ixDB = ThreadSafeQueue(QSIZE), 0
 
 TCP_R, TCP_W = None, None
-TCP_RERR, TCP_WERR = False, False
 
 rrhash = 0
 
@@ -874,7 +875,7 @@ async def CAN_READER():
       qfDB = qput(pkt, debugQUE, qfDB, DBGmsg)
       ixDB += 1
 
-async def TCP_WRITER(DELAY=500):
+async def TCP_WRITER(DELAY=_DELAY):
    global TCP_W
 
    last_t = utime.ticks_us()
@@ -910,17 +911,27 @@ async def TCP_WRITER(DELAY=500):
             continue              # Hope the connection comes back!
       last_t = utime.ticks_us()
 
-async def UDP_WRITER():
+async def UDP_WRITER(DELAY=_DELAY):
                                  # set up for UDP use
    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
    s.bind(('0.0.0.0',0))         # assumed to be only one interface
 
+   last_t = utime.ticks_us()
+
    while True:
       async for pkt in CANtoTCP:
          assert len(pkt) == CS2_SIZE
+
+         # Ensure packet interval no shorter than DELAY us
+         delta = utime.ticks_diff(utime.ticks_us(), last_t)
+         if delta < DELAY:
+            await asyncio.sleep_ms((DELAY - delta) // 1000)
+
          s.sendto(pkt, ('255.255.255.255',CS2_SPORT))
+
+         last_t = utime.ticks_us()
 
 async def CAN_WRITER(MERR=5, MCNT=500):
    from canbus import CanError
@@ -947,7 +958,7 @@ async def CAN_WRITER(MERR=5, MCNT=500):
             break
 
 async def DEBUG_OUT():
-   global rrhash, dec
+   global rrhash
 
    #                  0               1
    #                  0123456789ABCDEF0123456789ABCDEF
