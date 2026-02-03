@@ -108,7 +108,8 @@ everything is OK.)
 ### Download more software
 
 Next, from this repository, download two utilities used by the program:
-queuing routines[^3] and a Märklin packet decoder[^4].
+queuing routines[^3] (required), feedback feature (optional; see below to
+decide whether you want it); and a Märklin packet decoder[^4].
 In **rshell**, again:
 
 [^3]: The [asynchronous queue management](https://github.com/peterhinch/micropython-async/tree/master) will eventually be incorporated into MicroPython
@@ -118,8 +119,9 @@ itself; not yet, though.
 It is optional, but you might be curious to see the details of the traffic between your train controller and the Märklin Gleisbox.
 
 ```
-cp marklin.py /pyboard
 cp threadsafe.py /pyboard
+cp marklin.py /pyboard
+cp feedback.py /pyboard
 ```
 
 At this point, you need to choose whether you want to connect over WiFi with
