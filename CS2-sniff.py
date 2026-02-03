@@ -457,12 +457,12 @@ async def DEBUG_OUT():
       buf[5+dlc:CS2_SIZE] = (8-dlc)*b'\x00'
 
       cmd = (int.from_bytes(buf[0:2]) >> 1) & 0x7f
-      data = '%04x %04x %02x %s (%02x%s) *%s*' % (
+      cdec = ('[%02x]' % buf[9]) if cmd == 0 else ('(%02x)' % cmd)
+      data = '%04x %04x %02x %s %s *%s*' % (
          int.from_bytes(buf[0:2]), int.from_bytes(buf[2:4]),
          buf[4],
          ' '.join(map(''.join, zip(*[iter(buf[5:].hex())]*4))),
-         cmd, '' if cmd != 0 else ('/%02x' % buf[9]),
-         mycode(buf[5:5+int(buf[4])])
+         cdec, mycode(buf[5:5+int(buf[4])])
       )
       print(data)
       if avail:
