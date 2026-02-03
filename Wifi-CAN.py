@@ -12,9 +12,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 02 Feb 2026
+# last revision 03 Feb 2026
 
-_VER = const('EB026')            # version ID
+_VER = const('EB036')            # version ID
 
 ################################## Configuration variables start here...
 
@@ -882,12 +882,12 @@ while not wlan.isconnected():
 pico_led.on()
 ip = wlan.ifconfig()[0]
 
-#try:
-from feedback import Feedback
-fdbk = Feedback(NODE_ID,can.pins.FBP) # Feedback framework initialization
-feed = asyncio.create_task(FEEDBACK(fdbk))
-#except:
-#   fdbk = None
+try:
+   from feedback import Feedback
+   fdbk = Feedback(NODE_ID,can.pins.FBP) # Feedback framework initialization
+   feed = asyncio.create_task(FEEDBACK(fdbk))
+except:
+   fdbk = None
 
 canr = asyncio.create_task(CAN_READER())
 canw = asyncio.create_task(CAN_WRITER())

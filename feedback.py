@@ -39,7 +39,7 @@ class Feedback:
          val = not self.fbpin[ch].value()  # Get present pin state to initialize
          self.chn[ch], self.state[ch] = val, val
 
-         self.pool[ch] = bytearray(Feedback.CS2_SIZE)
+         self.pool[ch] = bytearray(CS2_SIZE)
          pkt = self.pool[ch]          # Allocate buffer for each channel
          pkt[0] = 0x11 >> 7 & 0xff
          pkt[1] = 0x11 << 1 & 0xff | 0x01   # set R flag
@@ -144,7 +144,7 @@ class Feedback:
          self.state[pin] = self.chn[pin]
       self.ptmr[pin] = 0            # Handled channel, schedule next timer
 
-   def stop(self,print=True):
+   def stop(self,stat=True):
       self.ticker.deinit()
       if Feedback.interrupt:
          for i in range(self.n): self.fbpin[i].irq(handler=None)
@@ -152,7 +152,7 @@ class Feedback:
          self.task.cancel()
       except:
          pass
-      if print:
+      if stat:
          print(
             'Feedback interrupts: %d, %.2f/sec' % (self._n, self._n/self._secs)
          )
