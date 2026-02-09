@@ -109,7 +109,7 @@ everything is OK.)
 
 Next, from this repository, download two utilities used by the program:
 queuing routines[^3] (required), feedback feature (optional; see below to
-decide whether you want it); and a Märklin packet decoder[^4].
+decide whether you want it); and an optional Märklin packet decoder[^4].
 In **rshell**, again:
 
 [^3]: The [asynchronous queue management](https://github.com/peterhinch/micropython-async/tree/master) will eventually be incorporated into MicroPython
@@ -119,9 +119,9 @@ itself; not yet, though.
 It is optional, but you might be curious to see the details of the traffic between your train controller and the Märklin Gleisbox.
 
 ```
-cp threadsafe.py /pyboard
-cp marklin.py /pyboard
-cp feedback.py /pyboard
+cp threadsafe.py /pyboard             # required
+cp feedback.py /pyboard               # only if feedback inputs needed
+cp marklin.py /pyboard                # optional
 ```
 
 At this point, you need to choose whether you want to connect over WiFi with
@@ -219,7 +219,7 @@ at all.
 
 To check whether you have DNS discovery of the RPP on your network, try
 ```
-ping -p 15731 CS2hub-xxxxxx
+ping CS2hub-xxxxxx
 ```
 and see if you get a reply.  If you do, great - otherwise use the IP address
 to configure your train controller ... and pay attention to the initial
@@ -456,12 +456,15 @@ correctly in the program before downloading it to the RPP.)
 * While running the hub, there is a slow heartbeat on the RPP to show you
 that the program is running.  If the flashing stops (no light or continuous
 light), something is hung.  To restart, press the `BOOT SEL` button on the RPP.
+* If the hub heartbeat is irregular, it indicates that the CAN bus is off.
+Restore power by plugging in the Gleisbox and restarting the hub using the
+`BOOT SEL` button.
 
 If you power off the Gleisbox, there is no longer an active CAN bus.
-The program handles this, but may not be able to successfully sync with the
-CAN bus after the Gleisbox powers up again.  If this turns out to be a problem,
-press the `BOOT SEL` button on the RPP to restart.  Or, cycle the power by
-unplugging it and plugging it back in.
+The program diagnoses this and will display an irregular heartbeat, but may
+not be able to successfully sync with the CAN bus after the Gleisbox powers up
+again.  Press the `BOOT SEL` button on the RPP to restart.
+Or, cycle the power by unplugging it and plugging it back in.
 
 ## Utilities
 

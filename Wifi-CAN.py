@@ -12,9 +12,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 03 Feb 2026
+# last revision 08 Feb 2026
 
-_VER = const('EB036')            # version ID
+_VER = const('EB086')            # version ID
 
 ################################## Configuration variables start here...
 
@@ -183,7 +183,6 @@ class iCAN:                      # interrupt driven CAN message sniffer
             freq=32_000_000,     # WARNING: 32 MHz max rate before bit loss 
             in_base=pin.SPI_MISO,
             out_base=pin.SPI_MOSI,
-            set_base=pin.SPI_SCK,
             sideset_base=pin.SPI_CS,
             in_shiftdir=PIO.SHIFT_LEFT,
             out_shiftdir=PIO.SHIFT_LEFT
@@ -407,7 +406,14 @@ class iCAN:                      # interrupt driven CAN message sniffer
       return self._pins
 
    @micropython.native
-   def send(self, ID=None, data=None, EFF=False, RTR=False):
+   def send(self, ID=None, data=None, EFF=False, RTR=False,
+      READ_EFLG_CMD=(      # PIO FIFO 1 word
+         (3-1)              << 24 |
+         _INSTR_READ        << 16 | 
+         _MCP_EFLG          <<  8 | 
+         0
+      )
+   ):
 
       dlc = 0 if data is None else len(data)
       buf = self.buf
@@ -446,10 +452,15 @@ class iCAN:                      # interrupt driven CAN message sniffer
          if not(b_1[0] & 0x08):   # clear buf?
             break
       else:
+         sm.put(                  # READ ERROR FLAGS - likely to be one
+            READ_EFLG_CMD
+         )
+         sm.get(b_1)
+         stat = b_1[0]
          self.sflag = 0           # lower semaphore to unblock reads
          if self.icnt != icnt:    # check for any read interrupts
             self._intr_ref(self.pin)
-         return 0x04              # return some kind of error
+         return stat              # return some kind of error
 
       a_4 = self.a_4
       b_4 = self.b_4
@@ -482,7 +493,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
 
       sm.put(READ_TXBF_CMD)
       sm.get(b_1)
-      stat = b_1[0] & 0x70        # TXB_ABTF | TXB_MLOA | TXB_TXERR
+      stat = (b_1[0] & 0x70) << 8 # TXB_ABTF | TXB_MLOA | TXB_TXERR
 
       self.sflag = 0              # lower semaphore after read
       if self.icnt != icnt:
@@ -543,9 +554,12 @@ def qput(pkt,queue,flag,msg):
 TCP_DONE = asyncio.ThreadSafeFlag()
 async def TCP_SERVER(R, W):
    # Callback when RocRail client connects to us
+   global NOCAN
    global TCP_R, TCP_W
+
    print('TCP connection made, waiting for traffic.')
    TCP_R, TCP_W = R, W
+   NOCAN = 0
 
    TCP_DONE.clear()
    await TCP_DONE.wait()   
@@ -761,6 +775,7 @@ async def UDP_WRITER(DELAY=_DELAY):
 
 async def CAN_WRITER(MERR=5, MCNT=500):
    from canbus import CanError
+   global NOCAN
 
    async for pkt in TCPtoCAN:     # process next incoming TCP packet
       assert len(pkt) == CS2_SIZE
@@ -774,13 +789,16 @@ async def CAN_WRITER(MERR=5, MCNT=500):
          if not errf:
             break                 # sent successfully
          cnt += 1
-         if cnt <= MERR:
-            print('   >>>CAN write error<<< (err %02x %s)%s' % 
-               (errf, CanError.decode(txctl=errf),
+         if cnt == 1 or cnt == MERR:
+            err = None if errf & 0x00ff == 0 else (errf & 0xff)
+            txe = None if errf & 0xff00 == 0 else (errf >> 8 & 0xff)
+            print('   >>>CAN write error<<< (%02x: %s)%s' % 
+               (errf, CanError.decode(error=err,txctl=txe),
                   ' - quelling further reports' if cnt >= MERR else '')
             )
          await asyncio.sleep_ms(10)
          if cnt > MCNT:          # Abandon packet after this many tries
+            NOCAN = 1
             break
 
 async def DEBUG_OUT():
@@ -789,10 +807,10 @@ async def DEBUG_OUT():
    #                  0               1
    #                  0123456789ABCDEF0123456789ABCDEF
    def mycode(ba, sp="□.........↲↓↧⇤.................."):
-      str = ''
-      for b in ba:
-         str += sp[b] if b < 0x20 else ('.' if b > 0x7f else chr(b))
-      return str
+      return ''.join(map(
+         lambda c: sp[c] if c < 0x20 else ('.' if c > 0x7f else chr(c)),
+         ba
+      ))
 
    async for buf in debugQUE:
       assert len(buf) == CS2_SIZE
@@ -813,15 +831,22 @@ async def DEBUG_OUT():
 
 async def HEARTBEAT():
    # Slow LED flash heartbeat while running; boot button restarts.
-   global pico_led
+   global NOCAN
 
-   warn = int(QSIZE * 0.75)
+   NOCAN = 0
+   warn = int(QSIZE * 0.75)      # queue congestion warning level
    while True:
       if rp2.bootsel_button() == 1: sys.exit()
       pico_led.on()
       await asyncio.sleep(1)
       pico_led.off()
       await asyncio.sleep(1)
+
+      if NOCAN:
+         pico_led.on()
+         await asyncio.sleep(0.5)
+         pico_led.off()
+         await asyncio.sleep(0.5)
 
       if TCPtoCAN.qsize() > warn and (TCPtoCAN.qsize()-warn) % 5 == 0:
          print('Wifi to CAN queue congestion: %d waiting' % TCPtoCAN.qsize())
