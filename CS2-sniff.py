@@ -8,9 +8,9 @@
 #          or Pico-CAN-B board by Waveshare (https://www.waveshare.com)
 
 # original version 15 Jan. '25
-# last revision 20 Jan. '26
+# last revision 08 Feb. '26
 
-_VER = 'AN206'                    # version ID
+_VER = 'EB086'                    # version ID
 
 CS2_SIZE = const(13)              # Fixed by protocol definition
 
@@ -32,7 +32,7 @@ MCP_EFLG          = const(0x2D)
 import uasyncio as asyncio
 from threadsafe import ThreadSafeQueue
 from machine import Pin
-import sys, gc, utime
+import sys, utime
 from micropython import schedule
 from rp2 import PIO, StateMachine
 from array import array
@@ -427,15 +427,13 @@ async def DEBUG_OUT():
    #                  0               1
    #                  0123456789ABCDEF0123456789ABCDEF
    def mycode(ba, sp="□.........↲↓↧⇤.................."):
-      str = ''
-      for b in ba:
-         str += sp[b] if b < 0x20 else ('.' if b > 0x7f else chr(b))
-      return str
+      return ''.join(map(
+         lambda c: sp[c] if c < 0x20 else ('.' if c > 0x7f else chr(c)),
+         ba
+      ))
 
    def itob(wrd):
-      return bytes(
-         (wrd >> 24 & 0xff, wrd >> 16 & 0xff, wrd >> 8 & 0xff, wrd & 0xff)
-      )
+      return wrd.to_bytes(4,'big')
 
    buf = bytearray(CS2_SIZE)
 
