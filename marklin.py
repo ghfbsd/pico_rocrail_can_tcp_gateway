@@ -28,13 +28,12 @@ class CS2decoder:
       self.print = print
 
    def _CRC(byt,acc):
-      acc = (acc ^ (byt << 8)) & 0xffff
+      acc = acc ^ (byt << 8)
       for i in range(8):
-         if acc & 0x8000 == 0x8000:
-            acc = (acc << 1) ^ 0x1021
+         if acc & 0x8000:
+            acc = (acc << 1) ^ 0x11021
          else:
             acc <<= 1
-         acc &= 0xffff
       return acc
 
    def decode(self,ID,data):
