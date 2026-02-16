@@ -6,16 +6,16 @@ from machine import Pin, Timer
 class Feedback:
    # Implement feedback by logic-level input from track sensors
 
-   interrupt = False                  # True for interrupt or False for poll
-   CS2_SIZE = const(13)               # Fixed by protocol definition
-   SETTLE_TIME = const(65)            # "S88" contact settle time (ms) (was 125)
+   _interrupt = const(False)          # True for interrupt or False for poll
+   _CS2_SIZE = const(13)              # Fixed by protocol definition
+   _SETTLE_TIME = const(65)           # "S88" contact settle time (ms) (was 125)
+   _myhash = const(0x5338)
 
    def __init__(self,node,pins):
-      myhash = 0x5338
       self.n = len(pins)
       self._n, self._secs = 0, 0
 
-      self.fbpp = bytearray(CS2_SIZE) # Feedback poll packet
+      self.fbpp = bytearray(_CS2_SIZE)# Feedback poll packet
       self.pool = self.n*[None]
       self.ptmr = bytearray(self.n)   # Feedback packet pool & pin timers
       self.fbpin = self.n*[None]      # Feedback pins
@@ -29,7 +29,7 @@ class Feedback:
       ch = 0
       for pin in pins:
          self.fbpin[ch] = Pin(pin, Pin.IN, Pin.PULL_UP)
-         if Feedback.interrupt: self.fbpin[ch].irq(
+         if _interrupt: self.fbpin[ch].irq(
             # this defines the interrupt handler
                trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING,
                handler=lambda p, id=ch: self._intr(id),
@@ -39,12 +39,12 @@ class Feedback:
          val = not self.fbpin[ch].value()  # Get present pin state to initialize
          self.chn[ch], self.state[ch] = val, val
 
-         self.pool[ch] = bytearray(CS2_SIZE)
+         self.pool[ch] = bytearray(_CS2_SIZE)
          pkt = self.pool[ch]          # Allocate buffer for each channel
          pkt[0] = 0x11 >> 7 & 0xff
          pkt[1] = 0x11 << 1 & 0xff | 0x01   # set R flag
-         pkt[2] = myhash >> 8 & 0xff
-         pkt[3] = myhash & 0xff
+         pkt[2] = _myhash >> 8 & 0xff
+         pkt[3] = _myhash & 0xff
          pkt[4] = 8
          pkt[5:7] = bytes((0,node))
          pkt[7:9] = bytes((0,ch))
@@ -57,8 +57,8 @@ class Feedback:
       for i in range(self.n): val |= self.state[i] << i
       self.fbpp[0] = 0x10 >> 7 & 0xff    # Build state packet
       self.fbpp[1] = 0x10 << 1 | 0x01    # set R flag
-      self.fbpp[2] = myhash >> 8 & 0xff
-      self.fbpp[3] = myhash & 0xff
+      self.fbpp[2] = _myhash >> 8 & 0xff
+      self.fbpp[3] = _myhash & 0xff
       self.fbpp[4] = 7
       self.fbpp[5:9] = bytes((0x53,0x30,0,node))
       self.fbpp[9] = node
@@ -75,12 +75,9 @@ class Feedback:
       )
 
       # defines pin change timer (if interrupt) or polling task
-      try:
-         self.task = asyncio.create_task(
-            self._time() if Feedback.interrupt else self._poll()
-         )
-      except CancelledError:
-         pass
+      self.task = asyncio.create_task(
+         self._time() if _interrupt else self._poll()
+      )
 
 
    async def _time(self):        # Wait for feedback pin change
@@ -103,7 +100,7 @@ class Feedback:
                if self.timer[i] is None: self.timer[i] = machine.Timer()
                self.timer[i].init(# Check state later
                   mode=Timer.ONE_SHOT,
-                  period=Feedback.SETTLE_TIME,
+                  period=_SETTLE_TIME,
                   callback=lambda t, ch=i: self._check(ch)
                )
                self.ptmr[i] = 1
@@ -123,7 +120,7 @@ class Feedback:
                self.wflag.set()
             pps |= self.state[n] << n
          self.fbpp[11] = pps     # Maintain state in poll packet
-         await asyncio.sleep_ms(Feedback.SETTLE_TIME)
+         await asyncio.sleep_ms(_SETTLE_TIME)
 
    def _intr(self,pin):          # Interrupt handler
       self._n += 1
@@ -146,7 +143,7 @@ class Feedback:
 
    def stop(self,stat=True):
       self.ticker.deinit()
-      if Feedback.interrupt:
+      if _interrupt:
          for i in range(self.n): self.fbpin[i].irq(handler=None)
       try:
          self.task.cancel()
