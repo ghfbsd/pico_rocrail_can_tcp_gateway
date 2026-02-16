@@ -430,7 +430,8 @@ def decode(ID,data,detail=False) -> str:
             elif data[7] == 0x20: 
                mess += 'Gleisbox 6021 (60128)'
             elif data[7] >= 0x30 and data[7] <= 0x34:
-               mess += 'MS2 6065%d' % (3+(int(data[7]) & 0x07))
+               rng = 3 if data[7] == 0x30 else 7
+               mess += 'MS%d 6065%d' % (rng//3, rng)
             elif data[7] == 0x40: 
                if rng & 0xfff0 == 0x5330:
                   mess += 'LinkS88'
