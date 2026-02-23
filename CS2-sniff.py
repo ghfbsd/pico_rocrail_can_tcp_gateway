@@ -8,9 +8,9 @@
 #          or Pico-CAN-B board by Waveshare (https://www.waveshare.com)
 
 # original version 15 Jan. '25
-# last revision 08 Feb. '26
+# last revision 23 Feb. '26
 
-_VER = 'EB086'                    # version ID
+_VER = 'EB236'                    # version ID
 
 CS2_SIZE = const(13)              # Fixed by protocol definition
 
@@ -42,11 +42,16 @@ AEEB(100)                         # boilerplate: IRQ-level exception reporting
 
 print('CS1/CS2 protocol packet sniffer (%s)' % _VER)
 try:
-   from marklin import decode     # Marklin CS2 CAN packet decoder
-   avail = True
+   from marklin import decode, CS2decoder     # Marklin CS2 CAN packet decoder
 except:
-   avail = False                  # don't use it if not available
    print('No Märklin packet decoding, only logging raw data.')
+   # Dummy decoder if not available
+   class CS2decoder:
+      def __init__(self,*pos,**kwd):
+         pass
+      def decode(self,*pos,**kwd):
+         pass
+dec = CS2decoder(pfx='    ',detail=True,print=True)
 
 def timed_function(f, *args, **kwargs):
     myname = str(f).split(' ')[1]
@@ -163,7 +168,6 @@ class iCAN:                       # interrupt driven CAN message sniffer
             freq=32_000_000,      # WARNING: 32 MHz max rate before bit loss 
             in_base=pin.SPI_MISO,
             out_base=pin.SPI_MOSI,
-            set_base=pin.SPI_SCK,
             sideset_base=pin.SPI_CS,
             in_shiftdir=PIO.SHIFT_LEFT,
             out_shiftdir=PIO.SHIFT_LEFT
@@ -463,11 +467,9 @@ async def DEBUG_OUT():
          cdec, mycode(buf[5:5+int(buf[4])])
       )
       print(data)
-      if avail:
-         print('   ', decode(
-               int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])], detail=True
-            )
-         )
+      dec.decode(
+         int.from_bytes(buf[0:4]), buf[5:5+int(buf[4])]
+      )
 
 async def HEARTBEAT():
    # Slow LED flash heartbeat while running; boot button restarts.
