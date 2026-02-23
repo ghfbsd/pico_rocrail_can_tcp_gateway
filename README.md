@@ -303,11 +303,8 @@ run them both.  Only the RPP's USB connection will talk to **rshell** though.
 
 ## Using the Hub with JMRI
 
-JMRI releases prior to 5.11 only work with the UDP protocol; make sure that
-you chose `'UDP'` as your protocol type in `Wifi-CAN.py` on the RPP hub before
-downloading and starting it.
-Releases 5.11 (predicted release date is June 2025) and higher will work with
-TCP.
+JMRI releases post 5.12 work with the TCP protocol (prior to this, only UDP
+could be used).
 
 ![dialog box image](https://github.com/ghfbsd/pico_rocrail_can_tcp_gateway/blob/main/images/JMRI-control.png?raw=true)
 
@@ -315,6 +312,12 @@ In the `Preferences->Connections` panel, press the `+` button to add the hub.
 Choose **Marklin** as the `System manufacturer`, and **CS2 via network** as the
 `System connection`.  Fill in the `IP Address/Host Name` field with either the
 hub's IP address or DNS name (if your network provides it).
+
+When you're ready to start running and there is no MS2, CS2 or CS3 attached (in
+other words, only running with an attached Gleisbox), navigate to Panel Pro's
+main menu and under the `Marklin-CS2` item activate the `Send MCAN BOOT` tab.
+This starts the Gleisbox running under JMRI - **there will be no response to
+JMRI controls unless you do this**.
 
 ## Using the Hub with BTrain
 
