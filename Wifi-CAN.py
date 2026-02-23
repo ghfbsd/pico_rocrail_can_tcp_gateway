@@ -12,9 +12,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 08 Feb 2026
+# last revision 23 Feb 2026
 
-_VER = const('EB086')            # version ID
+_VER = const('EB236')            # version ID
 
 ################################## Configuration variables start here...
 
@@ -574,6 +574,7 @@ async def TCP_READER(ip,host):
    global TCP_R, rrhash, ixTC, ixDB, ixCT
 
    print('Available at {} as {}, port {:d}.'.format(ip,host,CS2_PORT))
+   fbpp = bytearray(CS2_SIZE)
 
    while True:                   # Wait for connection
       if TCP_R is None:
@@ -619,7 +620,8 @@ async def TCP_READER(ip,host):
       ixDB += 1
 
       if cmd == 0x10 and sub == NODE_ID and not rsp and fdbk is not None:
-         fbpp = copy.copy(fdbk.state_packet) # Check for S88 state poll
+      #  fbpp = copy.copy(fdbk.state_packet) # Check for S88 state poll
+         fbpp[0:CS2_SIZE] = fdbk.state_packet
          buf = CtoT[ixCT % QSIZE]
          buf[0:CS2_SIZE] = fbpp
          await CANtoTCP.put(buf)
@@ -650,6 +652,7 @@ async def UDP_READER(ip,host,timeout=0):
    print('UDP connection made, waiting for traffic.')
    cpkt, npkt = [], 0
    for n in range(QSIZE): cpkt.append(bytearray(CS2_SIZE))
+   fbpp = bytearray(CS2_SIZE)
 
    while True:                   # Wait for activity on port
       pkt = cpkt[npkt % QSIZE]
@@ -666,7 +669,8 @@ async def UDP_READER(ip,host,timeout=0):
          sub = int(pkt[9]) if pkt[4] > 4 else -1
          rsp = pkt[1] & 0x01
          if cmd == 0x10 and sub == NODE_ID and not rsp and fdbk is not None:
-            fbpp = copy.copy(fdbk.state_packet)
+         #  fbpp = copy.copy(fdbk.state_packet)
+            fbpp[0:CS2_SIZE] = fdbk.state_packet
             qfCT = qput(fbpp, CANtoTCP, qfCT, TCPmsg)
             qfDB = qput(fbpp, debugQUE, qfDB, DBGmsg)
 
@@ -870,13 +874,13 @@ print('%s <-> CAN packet hub (%s)' % (_IPP,_VER))
 try:
    from marklin import decode, CS2decoder    # Marklin CS2 CAN packet decoder
 except:
+   print('No Märklin packet decoding, only logging raw data.')
    # Dummy decoder if not available
    class CS2decoder:
       def __init__(self,*pos,**kwd):
          pass
       def decode(self,*pos,**kwd):
          pass
-   print('No Märklin packet decoding, only logging raw data.')
 dec = CS2decoder(pfx='    ',detail=True,print=True)
 
 #Connect to WLAN

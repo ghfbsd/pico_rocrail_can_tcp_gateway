@@ -92,157 +92,127 @@ class CS2decoder:
 
 def decode(ID,data,detail=False) -> str:
    hash = ID & 0xffff
-   resp = 'R' if ID & 0x00010000 else 'C'
+   resp = ID & 0x00010000
    comm = ID >> 17 & 0xff
    prio = ID >> 25 & 0x03
    dlen = len(data)
+   RC = 'R' if resp else 'C'
    dhex = ' '.join(           # put space between every octet
        map(''.join, zip(*[iter(data.hex())]*2))
    )
    gen = '%s %02x hash %04x prio: %d data: %s' % (
-          resp, comm, hash, prio, dhex if dlen > 0 else ''
+          RC, comm, hash, prio, dhex if dlen > 0 else ''
       )
 
    if not detail:
       return gen
 
+   garb = ' (garbled)'
    if comm == 0x00:          # SYSTEM
-      mess = resp + ' SYSTEM'
+      mess = RC + ' SYSTEM'
       if dlen < 5:
-         mess += ' (garbled)'
+         mess += garb
          return mess
       sub = int(data[4])
       if sub == 0x00:        # STOP
-         mess += ' STOP 00/00'
+         mess += ' STOP 00'
          if data[0:4] == 4*b'\x00':
             mess += ' (everybody)'
          else:
             mess += ' (%s)' % data[0:4].hex()
          return mess
       if sub == 0x01:        # GO
-         mess += ' GO 00/01'
+         mess += ' GO 01'
          if data[0:4] == 4*b'\x00':
             mess += ' (everybody)'
          else:
             mess += ' (%s)' % data[0:4].hex()
          return mess
       if sub == 0x02:        # SYSTEM HALT
-         mess += ' HALT 00/02'
+         mess += ' HALT 02'
          if data[0:4] == 4*b'\x00':
             mess += ' (everybody)'
          else:
             mess += ' (%s)' % data[0:4].hex()
          return mess
       if sub == 0x03:        # LOCO EMERGENCY STOP
-         mess += ' EMERGENCY HALT 00/03 (%s)' % data[0:4].hex()
+         mess += ' EMERGENCY HALT 03 (%s)' % data[0:4].hex()
          return mess
       if sub == 0x04:        # LOCO FORGET
-         mess += ' LOCO FORGET 00/04'
+         mess += ' LOCO FORGET 04'
          if data[0:4] == 4*b'\x00':
             mess += ' (everybody)'
          else:
             mess += ' (%s)' % data[0:4].hex()
          return mess
       if sub == 0x05:        # LOCO DATA PROTOCOL
+         mess += ' LOCO PROTOCOL CHANGE 05 (%s):' % data[0:4].hex()
          if dlen != 6:
-            mess += ' LOCO PROTOCOL CHANGE 00/05 (%s): garbled' % (
-               data[0:4].hex()
-            )
-            return mess
-         mess += ' LOCO PROTOCOL CHANGE 00/05 (%s): %02x' % (
-            data[0:4].hex(),int(data[5])
-         )
+            mess += garb
+         else:
+            mess += ' %02x' % int(data[5])
          return mess
       if sub == 0x06:        # ACCESSORY SWITCH TIME
+         mess += ' ACCESSORY SWITCH TIME 06 (%s):' % data[0:4].hex()
          if dlen != 7:
-            mess += ' ACCESSORY SWITCHING TIME 00/06 (%s): garbled' % (
-               data[0:4].hex()
-            )
-            return mess
-         mess += ' ACCESSORY SWITCH TIME 00/06 (%s): %d ms' % (
-            data[0:4].hex(),int.from_bytes(data[5:7])
-         )
+            mess += garb
+         else:
+            mess += ' %d ms' % int.from_bytes(data[5:7])
          return mess
       if sub == 0x08:        # PROTOCOL AVAILABILITY
+         mess += ' PROTOCOL AVAILABILITY 08 (%s):' % data[0:4].hex()
          if dlen != 6:
-            mess += ' PROTOCOL AVAILABILITY 00/08 (%s): garbled' % (
-               data[0:4].hex()
-            )
-            return mess
-         mess += ' PROTOCOL AVAILABILITY 00/08 (%s):' % data[0:4].hex()
-         if data[5] & 0x01: mess += ' MM2'
-         if data[5] & 0x02: mess += ' MFX'
-         if data[5] & 0x04: mess += ' DCC'
+            mess += garb
+         else:
+            if data[5] & 0x01: mess += ' MM2'
+            if data[5] & 0x02: mess += ' MFX'
+            if data[5] & 0x04: mess += ' DCC'
          return mess
       if sub == 0x09:        # MFX NEW REGISTRATION COUNTER
+         mess += ' MFX NEW REG COUNTER 09 (%s):' % data[0:4].hex()
          if dlen != 7:
-            mess += ' MFX NEW REG COUNTER 00/09 (%s): garbled' % (
-               data[0:4].hex()
-            )
-            return mess
-         mess += ' MFX NEW REG COUNTER 00/09 (%s): %d' % (
-            data[0:4].hex(),int.from_bytes(data[6:8])
-         )
+            mess += garb
+         else:
+            mess += ' %d' % int.from_bytes(data[6:8])
          return mess
       if sub == 0x0a:        # OVERLOAD
+         mess += ' OVERLOAD! 0A (%s):' % data[0:4].hex()
          if dlen != 6:
-            mess += ' OVERLOAD! 00/0A (%s): garbled' % (
-               data[0:4].hex()
-            )
-            return mess
-         mess += ' OVERLOAD! 00/0A (%s): channel %d' % (
-            data[0:4].hex(), int(data[5])
-         )
+            mess += garb
+         else:
+            mess += ' channel %d' % int(data[5])
          return mess
       if sub == 0x0b:        # STATUS
-         if dlen == 6 and resp == 'C':
-            mess += ' STATUS 00/0B (%s): channel %d' % (
-               data[0:4].hex(), int(data[5])
-            )
-            return mess
-         if dlen == 8 and resp == 'C':
-            mess += ' STATUS 00/0B (%s): channel %d config %d %d' % (
-               data[0:4].hex(),
+         mess += ' STATUS 0B (%s):' % data[0:4].hex()
+         if dlen == 6 and not resp:
+            mess += ' channel %d' % int(data[5])
+         elif dlen == 8 and not resp:
+            mess += ' channel %d config %d %d' % (
                int(data[5]), int(data[6]), int(data[7])
             )
-            return mess
-         if dlen == 8 and resp == 'R':
-            mess += ' STATUS 00/0B (%s): channel %d values %d %d' % (
-               data[0:4].hex(),
+         elif dlen == 8 and resp:
+            mess += ' channel %d values %d %d' % (
                int(data[5]), int(data[6]), int(data[7])
             )
-            return mess
-         if dlen == 7 and resp == 'R':
-            mess += ' STATUS 00/0B (%s): channel %d is %s' % (
-               data[0:4].hex(), int(data[5]), 1 == int(data[6])
+         elif dlen == 7 and resp:
+            mess += ' channel %d is %s' % (
+               int(data[5]), 1 == int(data[6])
             )
-            return mess
-         if dlen == 7 and resp == 'R':
-            mess += ' STATUS 00/0B (%s): channel %d is %s' % (
-               data[0:4].hex(), int(data[5]), 1 == int(data[6])
+         elif dlen == 7 and resp:
+            mess += ' channel %d is %s' % (
+               int(data[5]), 1 == int(data[6])
             )
-            return mess
-         mess += ' STATUS 00/0B (%s): garbled' % (
-            data[0:4].hex()
-         )
+         else:
+            mess += garb
          return mess
       if sub == 0x0c:        # DEVICE ID
-         if dlen == 5 and resp == 'C':
-            mess += ' DEVICE ID 00/0C (%s)' % data[0:4].hex()
-            return mess
-         if dlen == 7 and resp == 'C':
-            mess += ' DEVICE ID 00/0C (%s): channel %d' % (
-               data[0:4].hex(), int.from_bytes(data[5:7])
-            )
-            return mess
-         if dlen == 7 and resp == 'R':
-            mess += ' DEVICE ID 00/0C (%s): channel %d' % (
-               data[0:4].hex(), int.from_bytes(data[5:7])
-            )
-            return mess
-         mess += ' DEVICE ID 00/0C (%s): garbled' % (
-            data[0:4].hex(),
-         )
+         mess += ' DEVICE ID 0C (%s)' % data[0:4].hex()
+         if dlen == 5 and not resp:
+            pass
+         elif dlen == 7:
+            mess += ' channel %d' % int.from_bytes(data[5:7])
+         else:
+            mess += garb
          return mess
       if sub == 0x20:        # TICK (seems to be Rocrail command)
          if dlen == 8:
@@ -251,39 +221,36 @@ def decode(ID,data,detail=False) -> str:
             )
          return mess
       if sub == 0x80:        # RESET
+         mess += ' RESET 80 (%s):' % data[0:4].hex()
          if dlen != 6:
-            mess += ' RESET 00/80 (%s): garbled' % data[0:4].hex()
-            return mess
-         mess += ' RESET 00/80 (%s): target %d' % (
-            data[0:4].hex(), int(data[5])
-         )
+            mess += garb
+         else:
+            mess += ' target %d' % int(data[5])
          return mess
-      if dlen >= 5:       # Unknown, but decodeable
-         mess += ' ***UNKNOWN COMMAND: 00/%02x (%s)' % (
+      if dlen >= 5:          # Unknown, but decodeable
+         mess += ' <<<UNKNOWN COMMAND: %02x (%s)>>>' % (
             sub, data[0:4].hex()
          )
          return mess
       return gen
          
    if comm == 0x04:          # LOCO SPEED
-      mess = resp + ' LOCO SPEED 04'
+      mess = RC + ' LOCO SPEED 04'
       if dlen == 4:
          mess += ' (%s)' % data[0:4].hex()
-         return mess
-      if dlen == 6:
+      elif dlen == 6:
          mess += ' (%s): %d' % (
             data[0:4].hex(), int.from_bytes(data[4:6])
          )
-         return mess
-      mess += ' (garbled)'
+      else:
+         mess += garb
       return mess
          
    if comm == 0x05:          # LOCO DIRECTION
-      mess = resp + ' LOCO DIRECTION 05'
+      mess = RC + ' LOCO DIRECTION 05'
       if dlen == 4:
          mess += ' (%s)' % data[0:4].hex()
-         return mess
-      if dlen == 5:
+      elif dlen == 5:
          dirn =  int(data[4])
          mess += ' (%s): %d - ' % (
             data[0:4].hex(), dirn
@@ -292,36 +259,35 @@ def decode(ID,data,detail=False) -> str:
          elif dirn == 1: mess += 'forward'
          elif dirn == 2: mess += 'reverse'
          elif dirn == 3: mess += 'change'
-         else: mess += ' (undefined), maintain'
-         return mess
-      mess += ' (garbled)'
+         else:
+            mess += ' (undefined), maintain'
+      else:
+         mess += garb
       return mess
 
    if comm == 0x06:          # LOCO FUNCTION
-      mess = resp + ' LOCO FUNCTION 06'
+      mess = RC + ' LOCO FUNCTION 06'
       if dlen == 5:
          mess += ' (%s): F%d' % (data[0:4].hex(),int(data[4]))
-         return mess
-      if dlen == 6:
+      elif dlen == 6:
          mess += ' (%s): F%d value %d' % (
             data[0:4].hex(),
             int(data[4]),
             int(data[5])
          )
-         return mess
-      if dlen == 8:
+      elif dlen == 8:
          mess += ' (%s): F%d value %d range %d' % (
             data[0:4].hex(),
             int(data[4]),
             int(data[5]),
             int.from_bytes(data[6:8])
          )
-         return mess
-      mess += ' (%s): garbled' % data[0:4].hex()
+      else:
+         mess += ' (%s):' % data[0:4].hex() + garb
       return mess
 
    if comm == 0x07:          # READ CONFIG
-      mess = resp + ' READ CONFIG 07'
+      mess = RC + ' READ CONFIG 07'
       loc = int.from_bytes(data[0:4]) & 0xffff
       rng = loc >> 8 & 0xff
       if dlen == 6 or dlen == 7:
@@ -332,7 +298,7 @@ def decode(ID,data,detail=False) -> str:
          if rng >= 0x40 and rng <= 0x7f: # MFX check
             mess += ' MFX CV index %d ' % (int(data[4]) >> 2 & 0x3f)
          if dlen == 7:
-            if resp == 'C':
+            if not resp:
                mess += '%d bytes wanted' % (
                   256 if data[6] == b'\x00' else int(data[6])
                )
@@ -341,13 +307,13 @@ def decode(ID,data,detail=False) -> str:
             return mess
          mess += 'value UNREADABLE'
       else:
-         mess += ' (garbled)'
+         mess += garb
       return mess
 
    if comm == 0x08:          # WRITE CONFIG
-      mess = resp + ' WRITE CONFIG 08'
+      mess = RC + ' WRITE CONFIG 08'
       if dlen != 8:
-         mess += ' (garbled)'
+         mess += garb
          return mess
       loc = int.from_bytes(data[0:4]) & 0xffff
       rng = loc >> 8 & 0xff
@@ -358,7 +324,7 @@ def decode(ID,data,detail=False) -> str:
       if rng >= 0x40 and rng <= 0x7f: # MFX check
          mess += 'MFX CV index %d ' % (int(data[4]) >> 2 & 0x3f)
       mess += 'value %d 0x%02x' % (int(data[6]), int(data[6]))
-      if resp == 'R':
+      if resp:
          mess += ', write %s verify %s' % (
             'OK' if data[7] & 0x80 else 'ERROR',
             'OK' if data[7] & 0x40 else 'ERROR'
@@ -366,7 +332,7 @@ def decode(ID,data,detail=False) -> str:
       return mess
 
    if comm == 0x0b:          # ACCESSORIES
-      mess = resp + ' ACC 0B '
+      mess = RC + ' ACC 0B '
       if dlen >= 6:
          mess += '(%s): posn %d current %d' % (
             data.hex()[0:8], int(data[4]), int(data[5])
@@ -374,24 +340,24 @@ def decode(ID,data,detail=False) -> str:
       if dlen == 6: return mess
       if dlen == 8:
          mess += ' switch time %dx10 ms' % int.from_bytes(data[6:8])
-         return mess
-      mess += '(garbled)'
+      else:
+         mess += garb
       return mess
 
    if comm == 0x10:          # S88 POLL
-      mess = resp + ' S88 POLL 10 '
+      mess = RC + ' S88 POLL 10 '
       if dlen >= 5:
          mess += '(%s) module %d' % (data[0:4].hex(), int(data[4]))
          if dlen == 7:
             mess += ' %0x04' % int.from_bytes(data[5:7])
          if dlen == 5 or dlen == 7: return mess
-      mess += '(garbled)'
+      mess += garb
       return mess
 
    if comm == 0x11:          # FEEDBACK
-      mess = resp + ' FEEDBACK 11 '
+      mess = RC + ' FEEDBACK 11 '
       if dlen < 4:
-         mess += '(garbled)'
+         mess += garb
          return mess
 
       mess += 'addr %02x%02x %02x%02x ' % (
@@ -399,21 +365,20 @@ def decode(ID,data,detail=False) -> str:
       )
       if dlen == 5:
          mess += 'par %02x' % int(data[4])
-         return mess
-      if dlen == 8:
+      elif dlen == 8:
          mess += 'old %d new %d speed %d' % (
             int(data[4]),int(data[5]),int.from_bytes(data[6:8])
          )
       else:
-         mess += '(garbled)'
+         mess += garb
       return mess
 
    if comm == 0x18:          # PING
-      mess = resp + ' PING 18 '
+      mess = RC + ' PING 18 '
       if dlen == 0:
          mess += '(everybody)'
       elif dlen != 8:
-         mess += '(garbled)'
+         mess += garb
       else:
          mess += '(%s): ' % data[0:4].hex()
          if data[6] == 0x00:
@@ -439,15 +404,15 @@ def decode(ID,data,detail=False) -> str:
                   mess += 'S88 Gateway'
                else:
                   mess += 'S88 (unknown)'
-            elif data[7] == 0x51 and rng == 0x4d43:
-               mess += 'MäCAN bus coupler'
-            elif data[7] == 0x53:
-               if rng == 0x4d43:
-                  mess += 'MäCAN Dx32'
-               else:
-                  mess += 'Cg servo'
-            elif data[7] == 0x54:
-               mess += 'Cg feedback device'
+         #  elif data[7] == 0x51 and rng == 0x4d43:
+         #     mess += 'MäCAN bus coupler'
+         #  elif data[7] == 0x53:
+         #     if rng == 0x4d43:
+         #        mess += 'MäCAN Dx32'
+         #     else:
+         #        mess += 'Cg servo'
+         #  elif data[7] == 0x54:
+         #     mess += 'Cg feedback device'
             else:
                mess += '(unknown)'
          elif data[6:8] == b'\x12\x34': 
@@ -466,27 +431,27 @@ def decode(ID,data,detail=False) -> str:
       return mess
 
    if comm == 0x1b:          # CAN BOOT
-      mess = resp + ' CAN BOOT 1B '
+      mess = RC + ' CAN BOOT 1B '
       if dlen == 0:
          mess += '(everybody)'
       elif dlen >= 5:
          mess += '(%s): ' % data.hex()[0:2*dlen]
       else:
-         mess += '(garbled)'
+         mess += garb
       return mess
 
    if comm == 0x1c:          # RAIL BOOT
-      mess = resp + ' RAIL BOOT 1C '
+      mess = RC + ' RAIL BOOT 1C '
       if dlen >= 4:
          mess += '(%s): ' % data.hex()[0:2*dlen]
       else:
-         mess += '(garbled)'
+         mess += garb
       return mess
 
    if comm == 0x80:          # PROGRAMMING (undocumented)
-      mess = resp + ' PROGRAMMING 80 '
+      mess = RC + ' PROGRAMMING 80 '
       if dlen != 5:
-         mess += '(garbled)'
+         mess += garb
       else:
          mess += '(%s): %d 0x%02x' % (
             data.hex()[0:8], int(data[4]), int(data[4])
