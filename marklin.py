@@ -82,7 +82,11 @@ class CS2decoder:
                   mess += ' (invalid CRC)'
                if self.cnt != 0:
                   mess += ' (incorrect count)'
-               mess += '  text:\n' + self.txt
+               try:
+                  mess += '  text:\n' + self.txt
+               except:
+                  mess += '  text: (suppressed)'
+               del self.txt
       else:
          mess = decode(ID, data, detail)
 
