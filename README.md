@@ -18,7 +18,7 @@ and accessories on the rails
 them out over the WiFi network
 
 The communications protocol used is a public one
-[published by Märklin](https://streaming.maerklin.de/public-media/cs2/cs2CAN-Protokoll-2_0.pdf) using Wifi over either TCP or UDP to pass protocol packets to
+[published by Märklin](https://streaming.maerklin.de/public-media/cs2/cs2CAN-Protokoll-2_0.pdf) using either TCP or UDP over WiFi to pass protocol packets to
 the CAN bus wired to the various Märklin boxes.
 This same protocol is used by popular train control software, in particular
 [Rocrail](https://wiki.rocrail.net/doku.php?id=start),
