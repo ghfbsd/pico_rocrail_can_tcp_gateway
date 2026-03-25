@@ -206,7 +206,7 @@ First, they give the IP address and device name that you will need to set
 up your train controller to communicate with the wireless hub.  Second, it
 gives you the port number the TCP traffic is expected on.  You'll also need
 this to configure your train controller.  (Port 15731 is the port customarily
-used by Märklin to communicate by TCP with a Gleisbox.)
+used by Märklin to communicate by TCP with a Central Station CS2/CS3.)
 
 Another useful thing is the host name of the hub, `CS2hub-xxxxxx`.
 This is a permanent, unique host name assigned to the RPP; while your IP
