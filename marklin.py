@@ -71,6 +71,9 @@ class CS2decoder:
             self.txt, self.crc = '', 0xffff
          elif dlc == 8:
             _CRC = CS2decoder._CRC
+            if not hasattr(self, 'crc'):  # protect against lost start packets
+               self.txt, self.crc = '', 0xffff
+               self.cnt, self.val = 0xffff, 0
             for c in data:
                self.crc = _CRC(c,self.crc)
             self.txt += data.decode('utf-8')
