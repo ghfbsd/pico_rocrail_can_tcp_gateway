@@ -33,14 +33,11 @@ There are only two pieces of hardware required along with cabling:
 * a Raspberry Pi Pico Wireless (with headers);
 * a CAN bus interface board to plug the Raspberry Pi into:
 either a Joy-IT CAN-RS485 board (RB-P-CAN-485) or a Waveshare Pico-CAN-B board;
-* two male-male breadboard jumper wires (only needed for the Joy-IT board),
-plus another three for connecting the CAN board to the Gleisbox;
+* three male-male breadboard jumper wires for connecting the CAN board to the Gleisbox;
 * USB to mini-USB cable.
 
 Total cost of these items is about 20 euros (Jan. 2025).
-There is no soldering required, although a minimal amount (two connections on
-the Joy-IT board)
-yields a more robust setup.
+There is no soldering required.
 
 ## Setup
 
@@ -55,17 +52,12 @@ The appropriate firmware for a RPP can be found [here](https://micropython.org/d
 
 ### Assemble the board
 
-Familiarize yourself with the
-[RB-P-CAN-485 board](https://github.com/ghfbsd/RB-P-CAN-485) if you're using it;
-the board requires some setting up before it will work with your RPP.
+The Joy-IT RB-P-CAN-485 does not need any preparation before use.
 
-* If you want to solder jumpers to the CS and INT connections on the
-RB-P-CAN-485, do it now. 
 * Plug the RPP into the RB-P-CAN-485 board.
-* Jumper CS to pin GP17, and INT to pin GP20[^2].
 * Plug the USB cable into the RPP and connect it to your computer.
 
-[^2]: The photo shows different jumper pins for a previous code release; be assured the text is correct.
+[^2]: The photo shows jumpers, but they are not required; be assured the text is correct.
 
 The Waveshare board does not need any preparation before use.
 
@@ -98,10 +90,131 @@ you should only see the directory `canbus`.)
 
 #### Test the CAN board
 
-Start **rshell** and connect to the RPP to test the CAN interface board.
-Try the `can_test_intr.py` in the
-[RB-P-CAN-485 repository](https://github.com/ghfbsd/RB-P-CAN-485)
-to verify that it is working properly.
+* Plug a RPP into the sockets/headers on the board.
+
+* Connect to your RPP with the USB cable.
+
+* Get your favorite RPP development platform/IDE running (
+[rshell](https://github.com/dhylands/rshell) and
+[Thonny](https://thonny.org/) seem to be popular choices).
+
+* Download *canbus* to the RPP (with _rshell_, use
+`cd MicroPython_CAN_BUS_MCP2515` and then
+`rsync canbus /pyboard/canbus` ; with _Thonny_, use
+the `Tools -> Manage Packages menu`, search for "MicroPython_CAN_BUS_MCP2515" and install it to the target board).
+
+* Look at the `can_test_intr.py` source code.
+There are two ways of running the CAN bus:
+synchronously/polling or interrupt-driven.
+The simplest is by synchronous polling.
+Look at the source code and make sure the `POLL` variable has the value `True`.
+If not, change it and save the updated code.
+
+* Download `can_test_intr.py` to the RPP (with _rshell_ use `cp can_test_intr.py /pyboard`; not sure what to do for _Thonny_).
+
+* Run `can_test_intr.py`, by going into REPL mode and then typing,
+`execfile('can_test_intr.py')`.
+Compare your output with the sample output below.
+The program will flash the LED on the RPP once a second.
+It also runs forever, and you must interrupt it to stop it.
+
+##### Sample output in synchronous/polling mode.
+```
+
+Initialized successfully, polling mode.
+---------------------------------
+  1 send normal------------------
+    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
+  1 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
+---------------------------------
+  2 send normal------------------
+    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
+  2 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
+---------------------------------
+  3 send normal------------------
+    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
+  3 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
+---------------------------------
+  4 send normal------------------
+    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
+  4 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
+---------------------------------
+  5 send normal------------------
+    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
+  5 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
+---------------------------------
+  ...
+
+```
+##### Testing interrupt mode.
+
+Modify the program and set `POLL` to `False` to test the interrupt features
+of the expansion board.  Download it to the RPP and run it like before.
+
+The program runs forever; you must interrupt it to stop it.
+
+###### Sample output in interrupt mode.
+```
+
+Initialized successfully, interrupt mode.
+Interrupt mask is a3
+---------------------------------
+  1 send normal------------------
+    CAN id: 0x123 (1 bytes): 12
+  1 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (1 bytes): 12
+---------------------------------
+  2 send normal------------------
+    CAN id: 0x123 (2 bytes): 12 34
+  2 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (2 bytes): 12 34
+---------------------------------
+  3 send normal------------------
+    CAN id: 0x123 (3 bytes): 12 34 56
+  3 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (3 bytes): 12 34 56
+---------------------------------
+  4 send normal------------------
+    CAN id: 0x123 (4 bytes): 12 34 56 78
+  4 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (4 bytes): 12 34 56 78
+---------------------------------
+  5 send normal------------------
+    CAN id: 0x123 (5 bytes): 12 34 56 78 9a
+  5 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (5 bytes): 12 34 56 78 9a
+---------------------------------
+  6 send normal------------------
+    CAN id: 0x123 (6 bytes): 12 34 56 78 9a bc
+  6 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (6 bytes): 12 34 56 78 9a bc
+---------------------------------
+  7 send normal------------------
+    CAN id: 0x123 (7 bytes): 12 34 56 78 9a bc de
+  7 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (7 bytes): 12 34 56 78 9a bc de
+---------------------------------
+  8 send normal------------------
+    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
+  8 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
+---------------------------------
+  9 send normal------------------
+    CAN id: 0x123 (0 bytes):
+  9 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (0 bytes):
+---------------------------------
+ 10 send normal------------------
+    CAN id: 0x123 (1 bytes): 12
+ 10 send EFF---------------------
+    CAN id: 0x12345678 (EFF) (1 bytes): 12
+ ...
+```
 (If you don't see any FAIL messages after about 8 cycles, you can assume that
 everything is OK.)
 

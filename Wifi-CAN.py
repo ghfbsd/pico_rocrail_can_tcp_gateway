@@ -12,9 +12,9 @@
 # MicroPython v1.24.1 on 2024-11-29; Raspberry Pi Pico W with RP2040
 
 # 16 Jan. 2025
-# last revision 23 Feb 2026
+# last revision 13 Apr 2026
 
-_VER = const('EB236')            # version ID
+_VER = const('PR136')            # version ID
 
 ################################## Configuration variables start here...
 
@@ -98,7 +98,7 @@ class iCAN:                      # interrupt driven CAN message sniffer
       JI = CAN_pins(
          name = 'Joy-IT',           # These pin assignments are appropriate for
                                     # a RB-P-CAN-485 Joy-IT board
-         INT_PIN = 20,              # Interrupt pin for CAN board
+         INT_PIN = 22,              # Interrupt pin for CAN board
          SPI_CS = 17,
          SPI_SCK = 18,
          SPI_MOSI = 19,
