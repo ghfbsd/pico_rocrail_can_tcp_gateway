@@ -8,9 +8,9 @@
 #          or Pico-CAN-B board by Waveshare (https://www.waveshare.com)
 
 # original version 15 Jan. '25
-# last revision 23 Feb. '26
+# last revision 14 Apr. '26
 
-_VER = 'EB236'                    # version ID
+_VER = 'PR146'                    # version ID
 
 CS2_SIZE = const(13)              # Fixed by protocol definition
 
@@ -94,7 +94,7 @@ class iCAN:                       # interrupt driven CAN message sniffer
    pins_JI = CAN_pins(
       name = 'Joy-IT',            # These pin assignments are appropriate for
                                   # a RB-P-CAN-485 Joy-IT board
-      INT_PIN = 20,               # Interrupt pin for CAN board
+      INT_PIN = 22,               # Interrupt pin for CAN board
       SPI_CS = 17,
       SPI_SCK = 18,
       SPI_MOSI = 19,

@@ -94,15 +94,6 @@ you should only see the directory `canbus`.)
 
 * Connect to your RPP with the USB cable.
 
-* Get your favorite RPP development platform/IDE running (
-[rshell](https://github.com/dhylands/rshell) and
-[Thonny](https://thonny.org/) seem to be popular choices).
-
-* Download *canbus* to the RPP (with _rshell_, use
-`cd MicroPython_CAN_BUS_MCP2515` and then
-`rsync canbus /pyboard/canbus` ; with _Thonny_, use
-the `Tools -> Manage Packages menu`, search for "MicroPython_CAN_BUS_MCP2515" and install it to the target board).
-
 * Look at the `can_test_intr.py` source code.
 There are two ways of running the CAN bus:
 synchronously/polling or interrupt-driven.
