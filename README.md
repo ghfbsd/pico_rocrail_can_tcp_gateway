@@ -52,18 +52,12 @@ The appropriate firmware for a RPP can be found [here](https://micropython.org/d
 
 ### Assemble the board
 
-The Joy-IT RB-P-CAN-485 does not need any preparation before use.
+Neither board[^2] needs any preparation before use.
 
-* Plug the RPP into the RB-P-CAN-485 board.
+* Plug the RPP into the board.
 * Plug the USB cable into the RPP and connect it to your computer.
 
 [^2]: The photo shows jumpers, but they are not required; be assured the text is correct.
-
-The Waveshare board does not need any preparation before use.
-
-* Plug the RPP into the Pico-CAN-B board.
-* Plug the USB cable into the RPP and connect it to your computer.
-
 
 ### Download the software
 
@@ -115,54 +109,54 @@ Initialized successfully, interrupt mode.
 Interrupt mask is a3
 ---------------------------------
   1 send normal------------------
-    CAN id: 0x123 (1 bytes): 12
+    CAN id: 0x1 (1 bytes): 12
   1 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (1 bytes): 12
+    CAN id: 0x1 (EFF) (1 bytes): 12
 ---------------------------------
   2 send normal------------------
-    CAN id: 0x123 (2 bytes): 12 34
+    CAN id: 0x2 (2 bytes): 12 34
   2 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (2 bytes): 12 34
+    CAN id: 0x2 (EFF) (2 bytes): 12 34
 ---------------------------------
   3 send normal------------------
-    CAN id: 0x123 (3 bytes): 12 34 56
+    CAN id: 0x3 (3 bytes): 12 34 56
   3 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (3 bytes): 12 34 56
+    CAN id: 0x3 (EFF) (3 bytes): 12 34 56
 ---------------------------------
   4 send normal------------------
-    CAN id: 0x123 (4 bytes): 12 34 56 78
+    CAN id: 0x4 (4 bytes): 12 34 56 78
   4 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (4 bytes): 12 34 56 78
+    CAN id: 0x4 (EFF) (4 bytes): 12 34 56 78
 ---------------------------------
   5 send normal------------------
-    CAN id: 0x123 (5 bytes): 12 34 56 78 9a
+    CAN id: 0x5 (5 bytes): 12 34 56 78 9a
   5 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (5 bytes): 12 34 56 78 9a
+    CAN id: 0x5 (EFF) (5 bytes): 12 34 56 78 9a
 ---------------------------------
   6 send normal------------------
-    CAN id: 0x123 (6 bytes): 12 34 56 78 9a bc
+    CAN id: 0x6 (6 bytes): 12 34 56 78 9a bc
   6 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (6 bytes): 12 34 56 78 9a bc
+    CAN id: 0x6 (EFF) (6 bytes): 12 34 56 78 9a bc
 ---------------------------------
   7 send normal------------------
-    CAN id: 0x123 (7 bytes): 12 34 56 78 9a bc de
+    CAN id: 0x7 (7 bytes): 12 34 56 78 9a bc de
   7 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (7 bytes): 12 34 56 78 9a bc de
+    CAN id: 0x7 (EFF) (7 bytes): 12 34 56 78 9a bc de
 ---------------------------------
   8 send normal------------------
-    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
+    CAN id: 0x8 (8 bytes): 12 34 56 78 9a bc de f0
   8 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
+    CAN id: 0x8 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
 ---------------------------------
   9 send normal------------------
-    CAN id: 0x123 (0 bytes):
+    CAN id: 0x9 (0 bytes):
   9 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (0 bytes):
+    CAN id: 0x9 (EFF) (0 bytes):
 ---------------------------------
  10 send normal------------------
-    CAN id: 0x123 (1 bytes): 12
+    CAN id: 0xa (1 bytes): 12
  10 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (1 bytes): 12
+    CAN id: 0xa (EFF) (1 bytes): 12
  ...
 ```
 (If you don't see any FAIL messages after about 8 cycles, you can assume that

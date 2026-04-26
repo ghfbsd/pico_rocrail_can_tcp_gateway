@@ -70,7 +70,7 @@ elif _CANBOARD in boards:        # Explicit board choice?
 else:
    raise RuntimeError('***%s is an unsupported CAN board***' % _CANBOARD)
 
-pico_led = Pin("LED")
+pico_led = Pin("LED",Pin.OUT)
 pico_led.off()
 
 print("Initialized %s board successfully, %s mode." %
@@ -96,8 +96,9 @@ def recv(can):
             ' (RTR)' if msg.is_remote_frame else '',
             ' (EFF)' if msg.is_extended_id else '',
             msg.dlc,
-            data if msg.dlc > 0 else ''
+            data[0:3*(msg.dlc)] if msg.dlc > 0 else ''
         ))
+        pico_led.value(msg.can_id & 0x01)
     return error
 
 # Data to be sent over the CAN bus in bytes format
@@ -129,7 +130,6 @@ while POLL:
         if recv(can) != CanError.ERROR_OK:
             print('{:3d} -----------------receive FAIL'.format(n))
 
-    pico_led.toggle()
     time.sleep(1) # Wait for 1 second before sending the next set of messages
 
 
@@ -151,6 +151,7 @@ def trigger(pin):
     while can.checkReceive():
         if recv(can) != CanError.ERROR_OK:
             print('{:3d} -----------------receive FAIL'.format(n))
+            
     can.clearInterrupts()
 
 print("Interrupt mask is %02x" % can.getInterruptMask())
@@ -166,7 +167,7 @@ try:
         # Create a standard format frame CAN message
         # can_id - identifier for the CAN message, data - bytes to send
         print('{:3d} send normal------------------'.format(n))
-        msg = CanMsg(can_id=0x123, data=data[:n%9])
+        msg = CanMsg(can_id=n, data=data[:n%9])
         error = can.send(msg) # Send the CAN message and store the error status
         if error != CanError.ERROR_OK:
             # Check if the message was sent successfully
@@ -175,13 +176,12 @@ try:
         # Create an extended format frame CAN message
         # EFF flag indicates an extended frame format
         print('{:3d} send EFF---------------------'.format(n))
-        msg = CanMsg(can_id=0x12345678, data=data[:n%9], flags=CanMsgFlag.EFF)
+        msg = CanMsg(can_id=n, data=data[:n%9], flags=CanMsgFlag.EFF)
         error = can.send(msg) # Send the CAN message and store the error status
         if error != CanError.ERROR_OK:
             # Check if the message was sent successfully
             print('{:3d} -------------------------FAIL'.format(n))
 
-        pico_led.toggle()
         time.sleep(1)
 
 except KeyboardInterrupt:
