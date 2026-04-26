@@ -94,62 +94,21 @@ you should only see the directory `canbus`.)
 
 * Connect to your RPP with the USB cable.
 
-* Look at the `can_test_intr.py` source code.
+* Look at the `can_test.py` source code.
 There are two ways of running the CAN bus:
 synchronously/polling or interrupt-driven.
-The simplest is by synchronous polling.
-Look at the source code and make sure the `POLL` variable has the value `True`.
+Look at the source code and make sure the `POLL` variable has the value `False`.
 If not, change it and save the updated code.
 
-* Download `can_test_intr.py` to the RPP (with _rshell_ use `cp can_test_intr.py /pyboard`; not sure what to do for _Thonny_).
+* Download `can_test.py` to the RPP (with _rshell_ use `cp can_test.py /pyboard`; not sure what to do for _Thonny_).
 
-* Run `can_test_intr.py`, by going into REPL mode and then typing,
-`execfile('can_test_intr.py')`.
+* Run `can_test.py`, by going into REPL mode and then typing,
+`execfile('can_test.py')`.
 Compare your output with the sample output below.
 The program will flash the LED on the RPP once a second.
 It also runs forever, and you must interrupt it to stop it.
 
-##### Sample output in synchronous/polling mode.
-```
-
-Initialized successfully, polling mode.
----------------------------------
-  1 send normal------------------
-    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
-  1 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
----------------------------------
-  2 send normal------------------
-    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
-  2 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
----------------------------------
-  3 send normal------------------
-    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
-  3 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
----------------------------------
-  4 send normal------------------
-    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
-  4 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
----------------------------------
-  5 send normal------------------
-    CAN id: 0x123 (8 bytes): 12 34 56 78 9a bc de f0
-  5 send EFF---------------------
-    CAN id: 0x12345678 (EFF) (8 bytes): 12 34 56 78 9a bc de f0
----------------------------------
-  ...
-
-```
-##### Testing interrupt mode.
-
-Modify the program and set `POLL` to `False` to test the interrupt features
-of the expansion board.  Download it to the RPP and run it like before.
-
-The program runs forever; you must interrupt it to stop it.
-
-###### Sample output in interrupt mode.
+##### Sample output in interrupt mode.
 ```
 
 Initialized successfully, interrupt mode.
